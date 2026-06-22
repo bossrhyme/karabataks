@@ -58,11 +58,15 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .wrap{max-width:1320px;margin:0 auto;padding:22px}
 
 /* GRAND TOTAL */
-.grand{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.grand{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px}
 .gstat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
-.gstat .lbl{font-size:11.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;font-weight:500}
-.gstat .val{font-size:23px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px}
-.gstat .sub{font-size:12px;margin-top:3px;font-family:var(--mono)}
+.gstat.total{border-color:var(--border2);background:var(--panel2)}
+.gstat .gtitle{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.gstat.total .gtitle::before{content:'Σ';color:var(--text3);font-weight:700}
+.gstat .gpl{font-size:24px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px}
+.gstat .gpct{font-size:12.5px;font-family:var(--mono);margin-top:2px}
+.gstat .gsub{display:flex;gap:16px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text3);flex-wrap:wrap}
+.gstat .gsub b{color:var(--text2);font-family:var(--mono);font-weight:500}
 
 /* PORTFOLIOS */
 .portfolios{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -223,35 +227,33 @@ function render(){
   renderGrand();
 }
 
-function renderGrand(){
+function pfSummary(holdings){
   let invested=0, value=0;
-  state.portfolios.forEach(p=>{
-    p.holdings.forEach(h=>{
-      const pr = prices[h.coinId];
-      invested += Number(h.invested)||0;
-      if(pr) value += (Number(h.quantity)||0) * pr.price;
-    });
+  holdings.forEach(h=>{
+    const pr = prices[h.coinId];
+    invested += Number(h.invested)||0;
+    if(pr) value += (Number(h.quantity)||0) * pr.price;
   });
   const pl = value - invested;
   const plPct = invested>0 ? (pl/invested*100) : 0;
-  const el = document.getElementById('grandTotals');
-  el.innerHTML = `
-    <div class="gstat">
-      <div class="lbl">Toplam Yatırılan</div>
-      <div class="val">${fmtMoney(invested)}</div>
-    </div>
-    <div class="gstat">
-      <div class="lbl">Bugünkü Değer</div>
-      <div class="val">${fmtMoney(value)}</div>
-    </div>
-    <div class="gstat">
-      <div class="lbl">Net Kâr / Zarar</div>
-      <div class="val ${clsOf(pl)}">${fmtMoney(pl)}</div>
-    </div>
-    <div class="gstat">
-      <div class="lbl">Getiri</div>
-      <div class="val ${clsOf(pl)}">${fmtPct(plPct)}</div>
+  return {invested, value, pl, plPct};
+}
+function grandCard(title, s, isTotal){
+  return `<div class="gstat${isTotal?' total':''}">
+      <div class="gtitle">${escapeHtml(title)}</div>
+      <div class="gpl ${clsOf(s.pl)}">${fmtMoney(s.pl)}</div>
+      <div class="gpct ${clsOf(s.pl)}">${fmtPct(s.plPct)} getiri</div>
+      <div class="gsub">
+        <span>Yatırılan <b>${fmtMoney(s.invested)}</b></span>
+        <span>Değer <b>${fmtMoney(s.value)}</b></span>
+      </div>
     </div>`;
+}
+function renderGrand(){
+  const cards = state.portfolios.map(p=>grandCard(p.name, pfSummary(p.holdings), false));
+  const all = state.portfolios.reduce((acc,p)=>acc.concat(p.holdings),[]);
+  cards.push(grandCard('Genel Toplam', pfSummary(all), true));
+  document.getElementById('grandTotals').innerHTML = cards.join('');
 }
 
 function renderPortfolios(){
@@ -337,6 +339,7 @@ function renderPortfolio(p, idx){
 }
 
 function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ---------- Coin selection ---------- */
 const selectedCoin = {}; // pfId -> coin obj
