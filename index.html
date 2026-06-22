@@ -83,6 +83,12 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .pf-inv-edit:focus{border-color:var(--accent)}
 .pf-inv-edit::placeholder{color:var(--text3);font-weight:400}
 
+/* "Batırılan" — neon altın sarısı */
+.gold{color:#ffd60a!important;text-shadow:0 0 8px rgba(255,214,10,.45)}
+.gold b{color:#ffd60a}
+.pf-inv-edit.gold{color:#ffd60a;border-color:rgba(255,214,10,.45);text-shadow:0 0 8px rgba(255,214,10,.4)}
+.pf-inv-edit.gold:focus{border-color:#ffd60a}
+
 /* TABLE */
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -270,7 +276,7 @@ function grandCard(title, s, isTotal){
       <div class="gpl ${clsOf(s.pl)}">${fmtMoney(s.pl)}</div>
       <div class="gpct ${clsOf(s.pl)}">${fmtPct(s.plPct)} getiri</div>
       <div class="gsub">
-        <span>Yatırılan <b>${fmtMoney(s.invested)}</b></span>
+        <span class="gold">Batırılan <b>${fmtMoney(s.invested)}</b></span>
         <span>Değer <b>${fmtMoney(s.value)}</b></span>
       </div>
     </div>`;
@@ -321,8 +327,8 @@ function renderPortfolio(p, idx){
       <input class="pf-name" value="${escapeAttr(p.name)}" data-pf-name="${p.id}" maxlength="40">
     </div>
     <div class="pf-totals">
-      <div class="t"><span class="lbl">Yatırılan (${SYM})</span>
-        <input class="pf-inv-edit" type="number" step="any" value="${hasManualInvested(p)?p.invested:''}" placeholder="${s.holdInvested||0}" data-pf-inv="${p.id}" title="Portföy geneli yatırılan tutar"></div>
+      <div class="t"><span class="lbl gold">Batırılan (${SYM})</span>
+        <input class="pf-inv-edit gold" type="number" step="any" value="${hasManualInvested(p)?p.invested:''}" placeholder="${s.holdInvested||0}" data-pf-inv="${p.id}" title="Portföy geneli batırılan tutar"></div>
       <div class="t"><span class="lbl">Bugünkü Değer</span><span class="v">${fmtMoney(s.value)}</span></div>
       <div class="t"><span class="lbl">Kâr/Zarar</span><span class="v ${clsOf(s.pl)}">${fmtMoney(s.pl)}</span></div>
       <div class="t"><span class="lbl">Getiri</span><span class="v ${clsOf(s.pl)}">${fmtPct(s.plPct)}</span></div>
