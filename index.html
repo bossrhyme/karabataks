@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kripto Portföy Takip</title>
+<meta name="description" content="Bireysel kripto portföy takibi — yatırılan para, adet, anlık değer ve net kâr/zarar. Canlı fiyatlar CoinGecko'dan.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e1117;
+  --panel:#161b22;
+  --panel2:#1c2330;
+  --border:#262d3a;
+  --border2:#323a49;
+  --text:#e6edf3;
+  --text2:#9aa6b2;
+  --text3:#636e7b;
+  --green:#26d07c;
+  --green-bg:rgba(38,208,124,.12);
+  --red:#f85149;
+  --red-bg:rgba(248,81,73,.12);
+  --accent:#3b82f6;
+  --accent-bg:rgba(59,130,246,.14);
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --r:10px;
+  --rs:8px;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* HEADER */
+header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;background:rgba(14,17,23,.92);backdrop-filter:blur(8px);z-index:50}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#26d07c,#1e9e60);display:flex;align-items:center;justify-content:center;font-size:18px}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.brand .sub{font-size:11.5px;color:var(--text3)}
+.hsp{flex:1}
+.refresh-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 var(--green);animation:pulse 2s infinite}
+.dot.loading{background:#f0b429;animation:none}
+.dot.err{background:var(--red);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(38,208,124,.5)}70%{box-shadow:0 0 0 6px rgba(38,208,124,0)}100%{box-shadow:0 0 0 0 rgba(38,208,124,0)}}
+.btn{font-family:var(--font);font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--panel2);color:var(--text);padding:8px 14px;border-radius:var(--rs);cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:#4a5468;background:#222a38}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#062012;font-weight:600}
+.btn.primary:hover{background:#2ee089}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--text2);padding:6px 8px}
+.btn.ghost:hover{color:var(--text);background:var(--panel2)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+
+/* LAYOUT */
+.wrap{max-width:1320px;margin:0 auto;padding:22px}
+
+/* GRAND TOTAL */
+.grand{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.gstat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.gstat .lbl{font-size:11.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;font-weight:500}
+.gstat .val{font-size:23px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px}
+.gstat .sub{font-size:12px;margin-top:3px;font-family:var(--mono)}
+
+/* PORTFOLIOS */
+.portfolios{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.pf{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.pf-head{padding:15px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.pf-name{font-size:15px;font-weight:600;background:transparent;border:1px solid transparent;color:var(--text);padding:4px 8px;border-radius:6px;font-family:var(--font);min-width:0;flex:1;outline:none;transition:.12s}
+.pf-name:hover{border-color:var(--border)}
+.pf-name:focus{border-color:var(--accent);background:var(--bg)}
+.pf-totals{display:flex;gap:18px;padding:13px 18px;border-bottom:1px solid var(--border);background:var(--panel2);flex-wrap:wrap}
+.pf-totals .t{display:flex;flex-direction:column;gap:2px}
+.pf-totals .t .lbl{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.pf-totals .t .v{font-size:15px;font-weight:600;font-family:var(--mono)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:right;padding:9px 14px;font-size:10.5px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel)}
+thead th:first-child{text-align:left}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);white-space:nowrap;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--panel2)}
+.coin-cell{text-align:left!important;font-family:var(--font)!important}
+.coin{display:flex;align-items:center;gap:9px}
+.coin img{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:var(--panel2)}
+.coin .nm{font-weight:600;font-size:13.5px}
+.coin .sym{font-size:11px;color:var(--text3);text-transform:uppercase}
+.chg{font-size:11.5px}
+.pos{color:var(--green)}
+.neg{color:var(--red)}
+.muted{color:var(--text3)}
+.cell-edit{background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;width:96px;padding:5px 8px;border-radius:6px;text-align:right;outline:none;transition:.12s}
+.cell-edit:focus{border-color:var(--accent);background:var(--bg)}
+.row-actions{display:flex;justify-content:flex-end;gap:4px}
+.icon-btn{background:transparent;border:none;color:var(--text3);cursor:pointer;padding:5px;border-radius:6px;line-height:0;transition:.12s}
+.icon-btn:hover{color:var(--red);background:var(--red-bg)}
+.empty-row td{text-align:center;color:var(--text3);padding:26px;font-family:var(--font)}
+
+/* ADD FORM */
+.pf-add{padding:14px 18px;border-top:1px solid var(--border);position:relative}
+.add-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;padding-left:2px}
+.fld input{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;border-radius:var(--rs);outline:none;transition:.12s}
+.fld input:focus{border-color:var(--accent)}
+.fld.coin-fld{flex:1;min-width:150px}
+.fld.num input{font-family:var(--mono);width:110px}
+.results{position:absolute;left:18px;right:18px;top:100%;margin-top:-6px;background:var(--panel2);border:1px solid var(--border2);border-radius:var(--rs);max-height:280px;overflow-y:auto;z-index:30;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.results.hidden{display:none}
+.res-item{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border)}
+.res-item:last-child{border-bottom:none}
+.res-item:hover,.res-item.active{background:var(--accent-bg)}
+.res-item img{width:22px;height:22px;border-radius:50%;background:var(--panel)}
+.res-item .nm{font-weight:500}
+.res-item .sym{font-size:11px;color:var(--text3);text-transform:uppercase;margin-left:auto}
+.res-empty{padding:14px;text-align:center;color:var(--text3);font-size:12.5px}
+.selected-coin{display:inline-flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rs);padding:7px 10px;font-size:13px;height:36px}
+.selected-coin img{width:20px;height:20px;border-radius:50%}
+.selected-coin .x{cursor:pointer;color:var(--text3);font-size:16px;line-height:1;margin-left:2px}
+.selected-coin .x:hover{color:var(--red)}
+
+footer{text-align:center;padding:26px;color:var(--text3);font-size:12px}
+footer a{color:var(--text2);text-decoration:none}
+footer a:hover{color:var(--text)}
+
+@media(max-width:880px){
+  .portfolios{grid-template-columns:1fr}
+  .grand{grid-template-columns:1fr 1fr}
+  .gstat .val{font-size:20px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">📊</div>
+    <div>
+      <h1>Kripto Portföy Takip</h1>
+      <div class="sub">Canlı fiyatlar · CoinGecko</div>
+    </div>
+  </div>
+  <div class="hsp"></div>
+  <div class="refresh-info">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Yükleniyor…</span>
+  </div>
+  <button class="btn" id="refreshBtn">↻ Yenile</button>
+</header>
+
+<div class="wrap">
+  <div class="grand" id="grandTotals"></div>
+  <div class="portfolios" id="portfolios"></div>
+</div>
+
+<footer>
+  Fiyatlar yalnızca tarayıcınızda işlenir, hiçbir veri sunucuya gönderilmez. Veri kaynağı: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>.
+  <br>Bu sayfa yatırım tavsiyesi değildir.
+</footer>
+
+<script>
+const CG = 'https://api.coingecko.com/api/v3';
+const VS = 'usd';
+const SYM = '$';
+const REFRESH_MS = 60000;
+const STORE_KEY = 'cryptoPortfolioV1';
+
+/* ---------- State ---------- */
+let state = loadState();
+let prices = {};        // coinId -> {price, change24h}
+let refreshTimer = null;
+
+function defaultState(){
+  return {
+    portfolios: [
+      { id: pid(), name: 'Portföy 1', holdings: [] },
+      { id: pid(), name: 'Portföy 2', holdings: [] }
+    ]
+  };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return defaultState();
+    const s = JSON.parse(raw);
+    if(!s.portfolios || !s.portfolios.length) return defaultState();
+    // ensure exactly 2 portfolios
+    while(s.portfolios.length < 2) s.portfolios.push({id:pid(),name:'Portföy '+(s.portfolios.length+1),holdings:[]});
+    return s;
+  }catch(e){ return defaultState(); }
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function pid(){ return 'p'+Math.random().toString(36).slice(2,9); }
+
+/* ---------- Helpers ---------- */
+function allCoinIds(){
+  const set = new Set();
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>set.add(h.coinId)));
+  return [...set];
+}
+function fmtMoney(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const dec = abs>0 && abs<1 ? (abs<0.01?6:4) : 2;
+  return SYM + n.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtNum(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return n.toLocaleString('en-US',{maximumFractionDigits:8});
+}
+function fmtPct(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return (n>=0?'+':'') + n.toFixed(2) + '%';
+}
+function clsOf(n){ return n>0?'pos':(n<0?'neg':'muted'); }
+
+/* ---------- Rendering ---------- */
+function render(){
+  renderPortfolios();
+  renderGrand();
+}
+
+function renderGrand(){
+  let invested=0, value=0;
+  state.portfolios.forEach(p=>{
+    p.holdings.forEach(h=>{
+      const pr = prices[h.coinId];
+      invested += Number(h.invested)||0;
+      if(pr) value += (Number(h.quantity)||0) * pr.price;
+    });
+  });
+  const pl = value - invested;
+  const plPct = invested>0 ? (pl/invested*100) : 0;
+  const el = document.getElementById('grandTotals');
+  el.innerHTML = `
+    <div class="gstat">
+      <div class="lbl">Toplam Yatırılan</div>
+      <div class="val">${fmtMoney(invested)}</div>
+    </div>
+    <div class="gstat">
+      <div class="lbl">Bugünkü Değer</div>
+      <div class="val">${fmtMoney(value)}</div>
+    </div>
+    <div class="gstat">
+      <div class="lbl">Net Kâr / Zarar</div>
+      <div class="val ${clsOf(pl)}">${fmtMoney(pl)}</div>
+    </div>
+    <div class="gstat">
+      <div class="lbl">Getiri</div>
+      <div class="val ${clsOf(pl)}">${fmtPct(plPct)}</div>
+    </div>`;
+}
+
+function renderPortfolios(){
+  const root = document.getElementById('portfolios');
+  root.innerHTML = '';
+  state.portfolios.forEach((p, idx)=>{
+    root.appendChild(renderPortfolio(p, idx));
+  });
+}
+
+function renderPortfolio(p, idx){
+  let invested=0, value=0;
+  const rows = p.holdings.map(h=>{
+    const pr = prices[h.coinId];
+    const qty = Number(h.quantity)||0;
+    const inv = Number(h.invested)||0;
+    const curVal = pr ? qty*pr.price : null;
+    const pl = (curVal!==null) ? curVal-inv : null;
+    const plPct = (pl!==null && inv>0) ? pl/inv*100 : null;
+    invested += inv;
+    if(curVal!==null) value += curVal;
+    return `<tr>
+      <td class="coin-cell">
+        <div class="coin">
+          <img src="${h.image||''}" alt="" onerror="this.style.visibility='hidden'">
+          <div>
+            <div class="nm">${h.name}</div>
+            <div class="sym">${h.symbol}</div>
+          </div>
+        </div>
+      </td>
+      <td><input class="cell-edit" type="number" step="any" min="0" value="${qty}" data-pf="${p.id}" data-h="${h.id}" data-f="quantity"></td>
+      <td><input class="cell-edit" type="number" step="any" min="0" value="${inv}" data-pf="${p.id}" data-h="${h.id}" data-f="invested"></td>
+      <td>${pr?fmtMoney(pr.price):'<span class="muted">…</span>'}<div class="chg ${pr?clsOf(pr.change24h):''}">${pr?fmtPct(pr.change24h):''}</div></td>
+      <td>${curVal!==null?fmtMoney(curVal):'<span class="muted">…</span>'}</td>
+      <td class="${pl!==null?clsOf(pl):''}">${pl!==null?fmtMoney(pl):'—'}<div class="chg ${plPct!==null?clsOf(plPct):''}">${plPct!==null?fmtPct(plPct):''}</div></td>
+      <td><div class="row-actions">
+        <button class="icon-btn" title="Sil" data-del-pf="${p.id}" data-del-h="${h.id}">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  const pl = value-invested;
+  const plPct = invested>0 ? pl/invested*100 : 0;
+
+  const el = document.createElement('div');
+  el.className = 'pf';
+  el.innerHTML = `
+    <div class="pf-head">
+      <input class="pf-name" value="${escapeAttr(p.name)}" data-pf-name="${p.id}" maxlength="40">
+    </div>
+    <div class="pf-totals">
+      <div class="t"><span class="lbl">Yatırılan</span><span class="v">${fmtMoney(invested)}</span></div>
+      <div class="t"><span class="lbl">Bugünkü Değer</span><span class="v">${fmtMoney(value)}</span></div>
+      <div class="t"><span class="lbl">Kâr/Zarar</span><span class="v ${clsOf(pl)}">${fmtMoney(pl)}</span></div>
+      <div class="t"><span class="lbl">Getiri</span><span class="v ${clsOf(pl)}">${fmtPct(plPct)}</span></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Coin</th><th>Adet</th><th>Yatırılan</th><th>Anlık Fiyat</th><th>Bugünkü Değer</th><th>Net Kâr/Zarar</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${rows || `<tr class="empty-row"><td colspan="7">Henüz coin eklenmedi. Aşağıdan arayıp ekleyin.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="pf-add">
+      <div class="add-row">
+        <div class="fld coin-fld">
+          <label>Coin</label>
+          <div data-coinslot="${p.id}">
+            <input type="text" placeholder="Ara: bitcoin, eth, solana…" autocomplete="off" data-search="${p.id}">
+          </div>
+        </div>
+        <div class="fld num"><label>Adet</label><input type="number" step="any" min="0" placeholder="0" data-qty="${p.id}"></div>
+        <div class="fld num"><label>Yatırılan (${SYM})</label><input type="number" step="any" min="0" placeholder="0" data-inv="${p.id}"></div>
+        <button class="btn primary" data-add="${p.id}">+ Ekle</button>
+      </div>
+      <div class="results hidden" data-results="${p.id}"></div>
+    </div>`;
+  return el;
+}
+
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+/* ---------- Coin selection ---------- */
+const selectedCoin = {}; // pfId -> coin obj
+const searchCache = {};
+
+async function searchCoins(q){
+  q = q.trim().toLowerCase();
+  if(searchCache[q]) return searchCache[q];
+  const res = await fetch(`${CG}/search?query=${encodeURIComponent(q)}`);
+  if(!res.ok) throw new Error('search failed');
+  const data = await res.json();
+  const coins = (data.coins||[]).slice(0,12).map(c=>({
+    id:c.id, name:c.name, symbol:c.symbol, image:c.thumb
+  }));
+  searchCache[q] = coins;
+  return coins;
+}
+
+function showResults(pfId, coins){
+  const box = document.querySelector(`[data-results="${pfId}"]`);
+  if(!coins.length){ box.innerHTML = `<div class="res-empty">Sonuç yok</div>`; box.classList.remove('hidden'); return; }
+  box.innerHTML = coins.map((c,i)=>`
+    <div class="res-item" data-pick='${pfId}' data-idx='${i}'>
+      <img src="${c.image}" alt="" onerror="this.style.visibility='hidden'">
+      <span class="nm">${c.name}</span>
+      <span class="sym">${c.symbol}</span>
+    </div>`).join('');
+  box.classList.remove('hidden');
+  box._coins = coins;
+}
+function hideResults(pfId){
+  const box = document.querySelector(`[data-results="${pfId}"]`);
+  if(box) box.classList.add('hidden');
+}
+
+function pickCoin(pfId, coin){
+  selectedCoin[pfId] = coin;
+  const slot = document.querySelector(`[data-coinslot="${pfId}"]`);
+  slot.innerHTML = `<div class="selected-coin">
+      <img src="${coin.image}" alt="" onerror="this.style.visibility='hidden'">
+      <span>${coin.name} <span class="muted">${coin.symbol.toUpperCase()}</span></span>
+      <span class="x" data-clearcoin="${pfId}">✕</span>
+    </div>`;
+  hideResults(pfId);
+}
+function clearCoin(pfId){
+  delete selectedCoin[pfId];
+  const slot = document.querySelector(`[data-coinslot="${pfId}"]`);
+  slot.innerHTML = `<input type="text" placeholder="Ara: bitcoin, eth, solana…" autocomplete="off" data-search="${pfId}">`;
+  const inp = slot.querySelector('input'); if(inp) inp.focus();
+}
+
+/* ---------- Mutations ---------- */
+function addHolding(pfId){
+  const coin = selectedCoin[pfId];
+  const qty = parseFloat(document.querySelector(`[data-qty="${pfId}"]`).value);
+  const inv = parseFloat(document.querySelector(`[data-inv="${pfId}"]`).value);
+  if(!coin){ flash(pfId,'Önce bir coin seçin'); return; }
+  const p = state.portfolios.find(x=>x.id===pfId);
+  // merge if exists
+  const existing = p.holdings.find(h=>h.coinId===coin.id);
+  if(existing){
+    existing.quantity = (Number(existing.quantity)||0) + (isNaN(qty)?0:qty);
+    existing.invested = (Number(existing.invested)||0) + (isNaN(inv)?0:inv);
+  } else {
+    p.holdings.push({
+      id: pid(), coinId: coin.id, name: coin.name,
+      symbol: coin.symbol.toUpperCase(), image: coin.image,
+      quantity: isNaN(qty)?0:qty, invested: isNaN(inv)?0:inv
+    });
+  }
+  save();
+  delete selectedCoin[pfId];
+  render();
+  fetchPrices();
+}
+function deleteHolding(pfId, hId){
+  const p = state.portfolios.find(x=>x.id===pfId);
+  p.holdings = p.holdings.filter(h=>h.id!==hId);
+  save(); render();
+}
+function flash(pfId,msg){
+  const box = document.querySelector(`[data-results="${pfId}"]`);
+  box.innerHTML = `<div class="res-empty">${msg}</div>`;
+  box.classList.remove('hidden');
+  setTimeout(()=>hideResults(pfId),1800);
+}
+
+/* ---------- Prices ---------- */
+function setStatus(s, txt){
+  const dot = document.getElementById('statusDot');
+  dot.className = 'dot' + (s==='loading'?' loading':s==='err'?' err':'');
+  document.getElementById('statusText').textContent = txt;
+}
+async function fetchPrices(){
+  const ids = allCoinIds();
+  if(!ids.length){ setStatus('ok','Coin ekleyin'); return; }
+  setStatus('loading','Güncelleniyor…');
+  try{
+    const res = await fetch(`${CG}/simple/price?ids=${ids.join(',')}&vs_currencies=${VS}&include_24hr_change=true`);
+    if(!res.ok) throw new Error('http '+res.status);
+    const data = await res.json();
+    ids.forEach(id=>{
+      if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] };
+    });
+    const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    setStatus('ok','Güncellendi · '+t);
+    render();
+  }catch(e){
+    setStatus('err','Bağlantı hatası — tekrar denenecek');
+  }
+}
+
+/* ---------- Events (delegation) ---------- */
+let searchDebounce = {};
+document.addEventListener('input', e=>{
+  const t = e.target;
+  // search
+  if(t.dataset.search!==undefined){
+    const pfId = t.dataset.search;
+    const q = t.value;
+    clearTimeout(searchDebounce[pfId]);
+    if(q.trim().length<2){ hideResults(pfId); return; }
+    searchDebounce[pfId] = setTimeout(async ()=>{
+      try{ showResults(pfId, await searchCoins(q)); }
+      catch(err){ flash(pfId,'Arama hatası'); }
+    }, 280);
+  }
+  // inline qty/invested edit
+  if(t.classList.contains('cell-edit')){
+    const {pf,h,f} = t.dataset;
+    const p = state.portfolios.find(x=>x.id===pf);
+    const hold = p && p.holdings.find(x=>x.id===h);
+    if(hold){ hold[f] = t.value==='' ? 0 : parseFloat(t.value); save(); renderGrand(); updatePfTotals(); }
+  }
+});
+
+// recompute portfolio totals + row derived cells without losing input focus
+function updatePfTotals(){
+  // lightweight: re-render keeps focus tricky, so just re-render fully on blur
+}
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('cell-edit')){ render(); }
+});
+
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-add],[data-pick],[data-clearcoin],[data-del-pf]');
+  if(!t) { return; }
+  if(t.dataset.add!==undefined){ addHolding(t.dataset.add); }
+  else if(t.dataset.pick!==undefined){
+    const pfId = t.dataset.pick;
+    const box = document.querySelector(`[data-results="${pfId}"]`);
+    const coin = box._coins[+t.dataset.idx];
+    if(coin) pickCoin(pfId, coin);
+  }
+  else if(t.dataset.clearcoin!==undefined){ clearCoin(t.dataset.clearcoin); }
+  else if(t.dataset.delPf!==undefined){ deleteHolding(t.dataset.delPf, t.dataset.delH); }
+});
+
+// portfolio name editing
+document.addEventListener('input', e=>{
+  if(e.target.dataset.pfName!==undefined){
+    const p = state.portfolios.find(x=>x.id===e.target.dataset.pfName);
+    if(p){ p.name = e.target.value; save(); }
+  }
+});
+
+// hide results on outside click
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.pf-add')){
+    state.portfolios.forEach(p=>hideResults(p.id));
+  }
+}, true);
+
+document.getElementById('refreshBtn').addEventListener('click', fetchPrices);
+
+/* ---------- Init ---------- */
+render();
+fetchPrices();
+refreshTimer = setInterval(fetchPrices, REFRESH_MS);
+</script>
+</body>
+</html>
