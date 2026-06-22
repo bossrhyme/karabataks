@@ -79,6 +79,9 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .pf-totals .t{display:flex;flex-direction:column;gap:2px}
 .pf-totals .t .lbl{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
 .pf-totals .t .v{font-size:15px;font-weight:600;font-family:var(--mono)}
+.pf-inv-edit{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;width:128px;padding:3px 7px;border-radius:6px;outline:none;transition:.12s}
+.pf-inv-edit:focus{border-color:var(--accent)}
+.pf-inv-edit::placeholder{color:var(--text3);font-weight:400}
 
 /* TABLE */
 .tbl-wrap{overflow-x:auto}
@@ -173,12 +176,13 @@ const REFRESH_MS = 60000;
 const STORE_KEY = 'cryptoPortfolioV1';
 
 /* Birinci portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
-const SEED_FLAG = 'cryptoPortfolioSeedV1';
+const SEED_FLAG = 'cryptoPortfolioSeedV2';
 const SEED = [
   { coinId:'holotoken', name:'Holo',     symbol:'HOT', image:'', quantity:3155276.4, invested:0 },
   { coinId:'celestia',  name:'Celestia', symbol:'TIA', image:'', quantity:502.2298,  invested:0 },
   { coinId:'arbitrum',  name:'Arbitrum', symbol:'ARB', image:'', quantity:1000.8986, invested:0 }
 ];
+const SEED_INVESTED = 300000; // ilk portföy geneli yatırılan tutar (USD), coinlere dağıtılmaz
 
 /* ---------- State ---------- */
 let state = loadState();
@@ -212,6 +216,8 @@ function applySeed(){
   SEED.forEach(s=>{
     if(!p.holdings.some(h=>h.coinId===s.coinId)) p.holdings.push({ id:pid(), ...s });
   });
+  // Portföy geneli yatırılan tutarı, kullanıcı daha önce elle girmediyse ayarla
+  if(!hasManualInvested(p)) p.invested = SEED_INVESTED;
   localStorage.setItem(SEED_FLAG,'1');
   save();
 }
@@ -244,16 +250,25 @@ function render(){
   renderGrand();
 }
 
-function pfSummary(holdings){
-  let invested=0, value=0;
-  holdings.forEach(h=>{
+function hasManualInvested(p){ return p && p.invested!==undefined && p.invested!==null && p.invested!==''; }
+function pfSummary(p){
+  let holdInvested=0, value=0;
+  p.holdings.forEach(h=>{
     const pr = prices[h.coinId];
-    invested += Number(h.invested)||0;
+    holdInvested += Number(h.invested)||0;
     if(pr) value += (Number(h.quantity)||0) * pr.price;
   });
+  // Portföy seviyesinde elle girilen yatırım varsa onu kullan, yoksa coinlerin toplamı
+  const invested = hasManualInvested(p) ? Number(p.invested) : holdInvested;
   const pl = value - invested;
   const plPct = invested>0 ? (pl/invested*100) : 0;
-  return {invested, value, pl, plPct};
+  return {invested, value, pl, plPct, holdInvested};
+}
+function totalSummary(){
+  return state.portfolios.reduce((a,p)=>{
+    const s = pfSummary(p);
+    a.invested += s.invested; a.value += s.value; return a;
+  }, {invested:0, value:0, pl:0, plPct:0, finalize(){ this.pl=this.value-this.invested; this.plPct=this.invested>0?this.pl/this.invested*100:0; return this; }}).finalize();
 }
 function grandCard(title, s, isTotal){
   return `<div class="gstat${isTotal?' total':''}">
@@ -267,9 +282,8 @@ function grandCard(title, s, isTotal){
     </div>`;
 }
 function renderGrand(){
-  const cards = state.portfolios.map(p=>grandCard(p.name, pfSummary(p.holdings), false));
-  const all = state.portfolios.reduce((acc,p)=>acc.concat(p.holdings),[]);
-  cards.push(grandCard('Genel Toplam', pfSummary(all), true));
+  const cards = state.portfolios.map(p=>grandCard(p.name, pfSummary(p), false));
+  cards.push(grandCard('Genel Toplam', totalSummary(), true));
   document.getElementById('grandTotals').innerHTML = cards.join('');
 }
 
@@ -313,8 +327,7 @@ function renderPortfolio(p, idx){
     </tr>`;
   }).join('');
 
-  const pl = value-invested;
-  const plPct = invested>0 ? pl/invested*100 : 0;
+  const s = pfSummary(p);
 
   const el = document.createElement('div');
   el.className = 'pf';
@@ -323,10 +336,11 @@ function renderPortfolio(p, idx){
       <input class="pf-name" value="${escapeAttr(p.name)}" data-pf-name="${p.id}" maxlength="40">
     </div>
     <div class="pf-totals">
-      <div class="t"><span class="lbl">Yatırılan</span><span class="v">${fmtMoney(invested)}</span></div>
-      <div class="t"><span class="lbl">Bugünkü Değer</span><span class="v">${fmtMoney(value)}</span></div>
-      <div class="t"><span class="lbl">Kâr/Zarar</span><span class="v ${clsOf(pl)}">${fmtMoney(pl)}</span></div>
-      <div class="t"><span class="lbl">Getiri</span><span class="v ${clsOf(pl)}">${fmtPct(plPct)}</span></div>
+      <div class="t"><span class="lbl">Yatırılan (${SYM})</span>
+        <input class="pf-inv-edit" type="number" step="any" value="${hasManualInvested(p)?p.invested:''}" placeholder="${s.holdInvested||0}" data-pf-inv="${p.id}" title="Portföy geneli yatırılan tutar"></div>
+      <div class="t"><span class="lbl">Bugünkü Değer</span><span class="v">${fmtMoney(s.value)}</span></div>
+      <div class="t"><span class="lbl">Kâr/Zarar</span><span class="v ${clsOf(s.pl)}">${fmtMoney(s.pl)}</span></div>
+      <div class="t"><span class="lbl">Getiri</span><span class="v ${clsOf(s.pl)}">${fmtPct(s.plPct)}</span></div>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -490,16 +504,17 @@ document.addEventListener('input', e=>{
     const {pf,h,f} = t.dataset;
     const p = state.portfolios.find(x=>x.id===pf);
     const hold = p && p.holdings.find(x=>x.id===h);
-    if(hold){ hold[f] = t.value==='' ? 0 : parseFloat(t.value); save(); renderGrand(); updatePfTotals(); }
+    if(hold){ hold[f] = t.value==='' ? 0 : parseFloat(t.value); save(); renderGrand(); }
+  }
+  // portföy seviyesi yatırılan tutar
+  if(t.classList.contains('pf-inv-edit')){
+    const p = state.portfolios.find(x=>x.id===t.dataset.pfInv);
+    if(p){ p.invested = t.value==='' ? null : parseFloat(t.value); save(); renderGrand(); }
   }
 });
 
-// recompute portfolio totals + row derived cells without losing input focus
-function updatePfTotals(){
-  // lightweight: re-render keeps focus tricky, so just re-render fully on blur
-}
 document.addEventListener('change', e=>{
-  if(e.target.classList.contains('cell-edit')){ render(); }
+  if(e.target.classList.contains('cell-edit') || e.target.classList.contains('pf-inv-edit')){ render(); }
 });
 
 document.addEventListener('click', e=>{
