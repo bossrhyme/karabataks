@@ -172,6 +172,14 @@ const SYM = '$';
 const REFRESH_MS = 60000;
 const STORE_KEY = 'cryptoPortfolioV1';
 
+/* Birinci portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
+const SEED_FLAG = 'cryptoPortfolioSeedV1';
+const SEED = [
+  { coinId:'holotoken', name:'Holo',     symbol:'HOT', image:'', quantity:3155276.4, invested:0 },
+  { coinId:'celestia',  name:'Celestia', symbol:'TIA', image:'', quantity:502.2298,  invested:0 },
+  { coinId:'arbitrum',  name:'Arbitrum', symbol:'ARB', image:'', quantity:1000.8986, invested:0 }
+];
+
 /* ---------- State ---------- */
 let state = loadState();
 let prices = {};        // coinId -> {price, change24h}
@@ -198,6 +206,15 @@ function loadState(){
 }
 function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 function pid(){ return 'p'+Math.random().toString(36).slice(2,9); }
+function applySeed(){
+  if(localStorage.getItem(SEED_FLAG)) return;
+  const p = state.portfolios[0];
+  SEED.forEach(s=>{
+    if(!p.holdings.some(h=>h.coinId===s.coinId)) p.holdings.push({ id:pid(), ...s });
+  });
+  localStorage.setItem(SEED_FLAG,'1');
+  save();
+}
 
 /* ---------- Helpers ---------- */
 function allCoinIds(){
@@ -517,6 +534,7 @@ document.addEventListener('click', e=>{
 document.getElementById('refreshBtn').addEventListener('click', fetchPrices);
 
 /* ---------- Init ---------- */
+applySeed();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
