@@ -296,16 +296,10 @@ function renderPortfolios(){
 }
 
 function renderPortfolio(p, idx){
-  let invested=0, value=0;
   const rows = p.holdings.map(h=>{
     const pr = prices[h.coinId];
     const qty = Number(h.quantity)||0;
-    const inv = Number(h.invested)||0;
     const curVal = pr ? qty*pr.price : null;
-    const pl = (curVal!==null) ? curVal-inv : null;
-    const plPct = (pl!==null && inv>0) ? pl/inv*100 : null;
-    invested += inv;
-    if(curVal!==null) value += curVal;
     return `<tr>
       <td class="coin-cell">
         <div class="coin">
@@ -317,10 +311,8 @@ function renderPortfolio(p, idx){
         </div>
       </td>
       <td><input class="cell-edit" type="number" step="any" min="0" value="${qty}" data-pf="${p.id}" data-h="${h.id}" data-f="quantity"></td>
-      <td><input class="cell-edit" type="number" step="any" min="0" value="${inv}" data-pf="${p.id}" data-h="${h.id}" data-f="invested"></td>
       <td>${pr?fmtMoney(pr.price):'<span class="muted">…</span>'}<div class="chg ${pr?clsOf(pr.change24h):''}">${pr?fmtPct(pr.change24h):''}</div></td>
       <td>${curVal!==null?fmtMoney(curVal):'<span class="muted">…</span>'}</td>
-      <td class="${pl!==null?clsOf(pl):''}">${pl!==null?fmtMoney(pl):'—'}<div class="chg ${plPct!==null?clsOf(plPct):''}">${plPct!==null?fmtPct(plPct):''}</div></td>
       <td><div class="row-actions">
         <button class="icon-btn" title="Sil" data-del-pf="${p.id}" data-del-h="${h.id}">✕</button>
       </div></td>
@@ -345,10 +337,10 @@ function renderPortfolio(p, idx){
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Coin</th><th>Adet</th><th>Yatırılan</th><th>Anlık Fiyat</th><th>Bugünkü Değer</th><th>Net Kâr/Zarar</th><th></th>
+          <th>Coin</th><th>Adet</th><th>Anlık Fiyat</th><th>Bugünkü Değer</th><th></th>
         </tr></thead>
         <tbody>
-          ${rows || `<tr class="empty-row"><td colspan="7">Henüz coin eklenmedi. Aşağıdan arayıp ekleyin.</td></tr>`}
+          ${rows || `<tr class="empty-row"><td colspan="5">Henüz coin eklenmedi. Aşağıdan arayıp ekleyin.</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -361,7 +353,6 @@ function renderPortfolio(p, idx){
           </div>
         </div>
         <div class="fld num"><label>Adet</label><input type="number" step="any" min="0" placeholder="0" data-qty="${p.id}"></div>
-        <div class="fld num"><label>Yatırılan (${SYM})</label><input type="number" step="any" min="0" placeholder="0" data-inv="${p.id}"></div>
         <button class="btn primary" data-add="${p.id}">+ Ekle</button>
       </div>
       <div class="results hidden" data-results="${p.id}"></div>
@@ -427,19 +418,17 @@ function clearCoin(pfId){
 function addHolding(pfId){
   const coin = selectedCoin[pfId];
   const qty = parseFloat(document.querySelector(`[data-qty="${pfId}"]`).value);
-  const inv = parseFloat(document.querySelector(`[data-inv="${pfId}"]`).value);
   if(!coin){ flash(pfId,'Önce bir coin seçin'); return; }
   const p = state.portfolios.find(x=>x.id===pfId);
   // merge if exists
   const existing = p.holdings.find(h=>h.coinId===coin.id);
   if(existing){
     existing.quantity = (Number(existing.quantity)||0) + (isNaN(qty)?0:qty);
-    existing.invested = (Number(existing.invested)||0) + (isNaN(inv)?0:inv);
   } else {
     p.holdings.push({
       id: pid(), coinId: coin.id, name: coin.name,
       symbol: coin.symbol.toUpperCase(), image: coin.image,
-      quantity: isNaN(qty)?0:qty, invested: isNaN(inv)?0:inv
+      quantity: isNaN(qty)?0:qty, invested: 0
     });
   }
   save();
