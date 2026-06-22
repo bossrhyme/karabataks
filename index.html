@@ -264,12 +264,6 @@ function pfSummary(p){
   const plPct = invested>0 ? (pl/invested*100) : 0;
   return {invested, value, pl, plPct, holdInvested};
 }
-function totalSummary(){
-  return state.portfolios.reduce((a,p)=>{
-    const s = pfSummary(p);
-    a.invested += s.invested; a.value += s.value; return a;
-  }, {invested:0, value:0, pl:0, plPct:0, finalize(){ this.pl=this.value-this.invested; this.plPct=this.invested>0?this.pl/this.invested*100:0; return this; }}).finalize();
-}
 function grandCard(title, s, isTotal){
   return `<div class="gstat${isTotal?' total':''}">
       <div class="gtitle">${escapeHtml(title)}</div>
@@ -283,7 +277,6 @@ function grandCard(title, s, isTotal){
 }
 function renderGrand(){
   const cards = state.portfolios.map(p=>grandCard(p.name, pfSummary(p), false));
-  cards.push(grandCard('Genel Toplam', totalSummary(), true));
   document.getElementById('grandTotals').innerHTML = cards.join('');
 }
 
