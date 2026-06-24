@@ -179,16 +179,19 @@ const CG = 'https://api.coingecko.com/api/v3';
 const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
-const STORE_KEY = 'cryptoPortfolioV1';
+const STORE_KEY = 'cryptoPortfolioTekV1';
 
-/* Birinci portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
-const SEED_FLAG = 'cryptoPortfolioSeedV2';
+/* Tek portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
+const SEED_FLAG = 'cryptoPortfolioTekSeedV1';
 const SEED = [
-  { coinId:'holotoken', name:'Holo',     symbol:'HOT', image:'', quantity:3155276.4, invested:0 },
-  { coinId:'celestia',  name:'Celestia', symbol:'TIA', image:'', quantity:502.2298,  invested:0 },
-  { coinId:'arbitrum',  name:'Arbitrum', symbol:'ARB', image:'', quantity:1000.8986, invested:0 }
+  { coinId:'fetch-ai',     name:'Artificial Superintelligence', symbol:'FET',    image:'', quantity:2427.1538,  invested:0 },
+  { coinId:'render-token', name:'Render',                       symbol:'RENDER', image:'', quantity:249.75,     invested:0 },
+  { coinId:'celestia',     name:'Celestia',                     symbol:'TIA',    image:'', quantity:1144.38506, invested:0 },
+  { coinId:'uniswap',      name:'Uniswap',                      symbol:'UNI',    image:'', quantity:74.20,      invested:0 },
+  { coinId:'avalanche-2',  name:'Avalanche',                    symbol:'AVAX',   image:'', quantity:32.89777,   invested:0 },
+  { coinId:'illuvium',     name:'Illuvium',                     symbol:'ILV',    image:'', quantity:56.285,     invested:0 }
 ];
-const SEED_INVESTED = 300000; // ilk portföy geneli yatırılan tutar (USD), coinlere dağıtılmaz
+const SEED_INVESTED = 2000; // portföy geneli yatırılan tutar (USD), coinlere dağıtılmaz
 
 /* ---------- State ---------- */
 let state = loadState();
@@ -198,8 +201,7 @@ let refreshTimer = null;
 function defaultState(){
   return {
     portfolios: [
-      { id: pid(), name: 'Portföy 1', holdings: [] },
-      { id: pid(), name: 'Portföy 2', holdings: [] }
+      { id: pid(), name: 'Portföy', holdings: [] }
     ]
   };
 }
@@ -209,8 +211,6 @@ function loadState(){
     if(!raw) return defaultState();
     const s = JSON.parse(raw);
     if(!s.portfolios || !s.portfolios.length) return defaultState();
-    // ensure exactly 2 portfolios
-    while(s.portfolios.length < 2) s.portfolios.push({id:pid(),name:'Portföy '+(s.portfolios.length+1),holdings:[]});
     return s;
   }catch(e){ return defaultState(); }
 }
