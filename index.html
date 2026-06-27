@@ -74,9 +74,10 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .fx{position:absolute;top:0;line-height:1;will-change:transform,opacity}
 .fx.fall{animation:fx-fall linear forwards}
 @keyframes fx-fall{
-  0%{transform:translateY(-12%) rotate(0);opacity:0}
-  8%{opacity:1}
-  100%{transform:translate(var(--dx),130%) rotate(var(--rot));opacity:0}
+  0%{transform:translate(0,-20px) rotate(0);opacity:0}
+  6%{opacity:1}
+  88%{opacity:1}
+  100%{transform:translate(var(--dx),var(--ty)) rotate(var(--rot));opacity:0}
 }
 .fx.boom{animation:fx-boom ease-out forwards}
 @keyframes fx-boom{
@@ -624,31 +625,34 @@ function playIntroAnimation(){
   document.body.appendChild(overlay);
   const fall = ['🎉','🎊','💸','🪙','🎲','🎰','🔫','💵'];
   const boom = ['💥','💥','🔫','🎰'];
-  const N = 54;
+  const N = 64;
   for(let i=0;i<N;i++){
     const e = document.createElement('div');
-    const isBoom = Math.random() < 0.25;
+    const isBoom = Math.random() < 0.22;
     if(isBoom){
       e.className = 'fx boom';
       e.textContent = boom[Math.floor(Math.random()*boom.length)];
       e.style.left = (Math.random()*86+4)+'%';
-      e.style.top  = (Math.random()*78+6)+'%';
+      e.style.top  = (Math.random()*84+6)+'%';
       e.style.fontSize = (Math.random()*22+22)+'px';
-      e.style.animationDuration = (Math.random()*0.6+0.8)+'s';
-      e.style.animationDelay = (Math.random()*1.6)+'s';
+      e.style.animationDuration = (Math.random()*0.6+0.9)+'s';
+      e.style.animationDelay = (Math.random()*4)+'s';
     } else {
       e.className = 'fx fall';
       e.textContent = fall[Math.floor(Math.random()*fall.length)];
       e.style.left = (Math.random()*100)+'%';
+      // kartın en altına kadar insin (kendi yüksekliği kadar değil)
+      e.style.setProperty('--ty', (r.height*(0.92+Math.random()*0.12))+'px');
       e.style.setProperty('--dx', (Math.random()*120-60)+'px');
       e.style.setProperty('--rot', (Math.random()*720-360)+'deg');
       e.style.fontSize = (Math.random()*16+16)+'px';
-      e.style.animationDuration = (Math.random()*1.6+2)+'s';
-      e.style.animationDelay = (Math.random()*1)+'s';
+      // daha yavaş iniş
+      e.style.animationDuration = (Math.random()*3.5+4.5)+'s';
+      e.style.animationDelay = (Math.random()*2.4)+'s';
     }
     overlay.appendChild(e);
   }
-  setTimeout(()=>overlay.remove(), 5200);
+  setTimeout(()=>overlay.remove(), 11000);
 }
 
 /* ---------- Init ---------- */
