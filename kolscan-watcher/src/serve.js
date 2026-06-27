@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Sıfır-bağımlılıklı statik sunucu: dashboard.html + data/ klasörünü servis eder.
+// Sıfır-bağımlılıklı statik sunucu: repo kökünü (index.html dashboard) +
+// kolscan-watcher/data/ klasörünü servis eder.
 // Kullanım: npm run serve  (varsayılan http://localhost:8787)
 import http from 'node:http';
 import fs from 'node:fs';
@@ -7,7 +8,8 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// src/ -> kolscan-watcher/ -> repo kökü
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PORT = Number(process.env.PORT) || 8787;
 
 const TYPES = {
@@ -24,7 +26,7 @@ const TYPES = {
 const server = http.createServer(async (req, res) => {
   try {
     let urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    if (urlPath === '/') urlPath = '/dashboard.html';
+    if (urlPath === '/') urlPath = '/index.html';
 
     // Path traversal koruması
     const filePath = path.normalize(path.join(ROOT, urlPath));
@@ -49,5 +51,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`kolscan dashboard: http://localhost:${PORT}/`);
-  console.log(`(veri kaynağı: ${path.join(ROOT, 'data')} — izleyici için: npm start)`);
+  console.log(`(veri kaynağı: ${path.join(ROOT, 'kolscan-watcher', 'data')} — izleyici için: npm start)`);
 });

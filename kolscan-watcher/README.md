@@ -40,13 +40,13 @@ npm run discover -- trades   # veya: leaderboard | wallet
 
 ## Dashboard (web paneli)
 
-`dashboard.html` — KOL leaderboard'u **günlük / haftalık / aylık** sekmelerine ayıran,
-**Min Win Rate** filtresi (varsayılan **%60**) olan ve **canlı trade akışını** gösteren
-tek dosyalık panel. İzleyicinin `data/` çıktısını okur.
+Repo kökündeki **`index.html`** — KOL leaderboard'u **günlük / haftalık / aylık**
+sekmelerine ayıran, **Min Win Rate** filtresi (varsayılan **%60**) olan ve
+**canlı trade akışını** gösteren tek dosyalık panel. İzleyicinin `data/` çıktısını okur.
 
 ```bash
-npm run serve     # http://localhost:8787 (data/ ile birlikte servis eder)
-# veya: npx serve .    /    python3 -m http.server 8787
+npm run serve     # http://localhost:8787 — repo kökünü + kolscan-watcher/data'yı sunar
+# veya repo kökünden: python3 -m http.server 8787
 ```
 
 - **Win rate filtresi:** Üstteki kaydırıcı/giriş ile eşik ayarlanır (varsayılan %60).
