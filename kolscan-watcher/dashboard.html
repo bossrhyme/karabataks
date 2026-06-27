@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kolscan KOL Dashboard</title>
+<meta name="description" content="KOL leaderboard (günlük/haftalık/aylık, ≥%60 win rate) ve canlı trade akışı — kolscan-watcher verisiyle." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e1117; --panel:#161b22; --panel2:#1c2330; --border:#262d3a; --border2:#323a49;
+  --text:#e6edf3; --text2:#9aa6b2; --text3:#636e7b;
+  --green:#26d07c; --green-bg:rgba(38,208,124,.12);
+  --red:#f85149; --red-bg:rgba(248,81,73,.12);
+  --yellow:#f0b429; --accent:#3b82f6; --accent-bg:rgba(59,130,246,.14);
+  --font:'Inter',system-ui,-apple-system,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  --r:10px; --rs:8px;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* HEADER */
+header{border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;background:rgba(14,17,23,.92);backdrop-filter:blur(8px);z-index:50}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#26d07c,#1e9e60);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#062012}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.brand .sub{font-size:11.5px;color:var(--text3)}
+.hsp{flex:1}
+.status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 var(--green);animation:pulse 2s infinite}
+.dot.loading{background:var(--yellow);animation:none}
+.dot.err{background:var(--red);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(38,208,124,.5)}70%{box-shadow:0 0 0 6px rgba(38,208,124,0)}100%{box-shadow:0 0 0 0 rgba(38,208,124,0)}}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--panel)}
+.tabs{display:inline-flex;background:var(--panel2);border:1px solid var(--border2);border-radius:var(--rs);padding:3px;gap:2px}
+.tab{font-family:var(--font);font-size:13px;font-weight:600;border:0;background:transparent;color:var(--text2);padding:7px 16px;border-radius:6px;cursor:pointer;transition:.12s}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--green);color:#062012}
+.ctl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text2)}
+.ctl input[type=number]{width:62px;font-family:var(--mono);font-size:13px;background:var(--panel2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:6px 8px}
+.ctl input[type=range]{accent-color:var(--green)}
+.switch{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.badge-src{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;font-family:var(--mono)}
+.badge-src.live{background:var(--green-bg);color:var(--green)}
+.badge-src.demo{background:var(--accent-bg);color:var(--accent)}
+.badge-src.err{background:var(--red-bg);color:var(--red)}
+.btn{font-family:var(--font);font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--panel2);color:var(--text);padding:7px 13px;border-radius:var(--rs);cursor:pointer;transition:.12s}
+.btn:hover{border-color:#4a5468;background:#222a38}
+
+/* LAYOUT */
+main{display:grid;grid-template-columns:1fr 380px;gap:16px;padding:16px 22px;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.card-head h2{font-size:14px;font-weight:600}
+.card-head .meta{font-size:11.5px;color:var(--text3);font-family:var(--mono)}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel2);color:var(--text2);border:1px solid var(--border2)}
+
+/* LEADERBOARD TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--panel)}
+thead th.num,tbody td.num{text-align:right}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr:hover{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:0}
+.rank{font-family:var(--mono);color:var(--text3);font-weight:600;width:38px}
+.rank.top{color:var(--yellow)}
+.trader{display:flex;flex-direction:column;gap:1px}
+.trader .nm{font-weight:600}
+.trader .wl{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.mono{font-family:var(--mono)}
+.pos{color:var(--green)} .neg{color:var(--red)}
+.wr{font-family:var(--mono);font-weight:600;padding:3px 9px;border-radius:20px;font-size:12px;display:inline-block}
+.wr.good{background:var(--green-bg);color:var(--green)}
+.wr.mid{background:rgba(240,180,41,.12);color:var(--yellow)}
+.wl-cell{font-family:var(--mono);font-size:12px}
+.wl-cell .w{color:var(--green)} .wl-cell .l{color:var(--red)}
+a.addr{color:var(--accent);text-decoration:none} a.addr:hover{text-decoration:underline}
+
+/* TRADE FEED */
+#feed{max-height:72vh;overflow-y:auto}
+.trade{display:flex;align-items:center;gap:11px;padding:11px 16px;border-bottom:1px solid var(--border);animation:slidein .35s ease}
+@keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.side{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;font-family:var(--mono);min-width:42px;text-align:center}
+.side.buy{background:var(--green-bg);color:var(--green)}
+.side.sell{background:var(--red-bg);color:var(--red)}
+.trade .body{flex:1;min-width:0}
+.trade .top{display:flex;justify-content:space-between;gap:8px;font-size:12.5px}
+.trade .tok{font-weight:600}
+.trade .who{font-family:var(--mono);font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trade .amt{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.trade .ago{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap}
+
+.empty{padding:34px 16px;text-align:center;color:var(--text3);font-size:13px;line-height:1.7}
+.empty code{font-family:var(--mono);background:var(--panel2);padding:2px 6px;border-radius:5px;color:var(--text2)}
+footer{padding:18px 22px;color:var(--text3);font-size:11.5px;border-top:1px solid var(--border);text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">K</div>
+    <div>
+      <h1>Kolscan KOL Dashboard</h1>
+      <div class="sub">Leaderboard · Canlı Trade Akışı</div>
+    </div>
+  </div>
+  <div class="hsp"></div>
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Yükleniyor…</span>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tf="daily">Günlük</button>
+    <button class="tab" data-tf="weekly">Haftalık</button>
+    <button class="tab" data-tf="monthly">Aylık</button>
+  </div>
+  <label class="ctl">Min Win Rate
+    <input type="range" id="wrRange" min="0" max="100" step="5" value="60" />
+    <input type="number" id="wrNum" min="0" max="100" step="1" value="60" />%
+  </label>
+  <label class="ctl switch"><input type="checkbox" id="autoChk" checked /> Otomatik yenile</label>
+  <button class="btn" id="refreshBtn">↻ Yenile</button>
+  <div class="hsp"></div>
+  <span class="badge-src demo" id="srcBadge">— </span>
+</div>
+
+<main>
+  <section class="card">
+    <div class="card-head">
+      <h2>KOL Leaderboard</h2>
+      <span class="pill" id="tfPill">Günlük</span>
+      <span class="pill" id="wrPill">Win Rate ≥ %60</span>
+      <div class="hsp" style="flex:1"></div>
+      <span class="meta" id="lbMeta"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Trader</th>
+            <th class="num">PnL (SOL)</th>
+            <th class="num">PnL (USD)</th>
+            <th class="num">W / L</th>
+            <th class="num">Win Rate</th>
+          </tr>
+        </thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Canlı Trade Akışı</h2>
+      <span class="dot" id="feedDot" style="width:7px;height:7px"></span>
+      <div class="hsp" style="flex:1"></div>
+      <span class="meta" id="feedMeta"></span>
+    </div>
+    <div id="feed"></div>
+  </section>
+</main>
+
+<footer>
+  kolscan-watcher verisini gösterir · Veri yoksa <code>npm start</code> ile izleyiciyi çalıştır ·
+  Bu sayfayı <code>data/</code> klasörüne erişebilecek şekilde sun (ör. <code>npx serve kolscan-watcher</code>).
+</footer>
+
+<script>
+const CFG = {
+  // kolscan-watcher çıktıları (bu HTML kolscan-watcher/ içinden sunulduğunda):
+  leaderboardPath: (tf) => `data/leaderboard/${tf}.json`,
+  tradesPath: 'data/trades.jsonl',
+  pollMs: 10000,
+  maxTrades: 120,
+};
+
+const state = { tf: 'daily', minWr: 60, auto: true, timer: null, source: 'demo' };
+const TF_LABEL = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
+
+/* ---------- alan erişimi (watcher şemasına toleranslı) ---------- */
+const num = (v) => (v === null || v === undefined || v === '' || isNaN(+v) ? null : +v);
+function lbWallet(r){return r._wallet||r.wallet_address||r.walletAddress||r.address||r.wallet||r.id||null}
+function lbName(r){return r.trader_name||r.name||r.username||null}
+function lbPnlSol(r){return num(r.pnl_sol??r.pnlSol??r.pnl)}
+function lbPnlUsd(r){return num(r.pnl_usd??r.pnlUsd??r.usd)}
+function lbWins(r){return num(r.wins??r.win??r.win_count)??0}
+function lbLosses(r){return num(r.losses??r.loss??r.loss_count)??0}
+function lbWinRate(r){
+  const direct = num(r.win_rate??r.winRate??r.winrate);
+  if (direct !== null) return direct <= 1 ? direct*100 : direct;
+  const w = lbWins(r), l = lbLosses(r);
+  return (w+l) > 0 ? (w/(w+l))*100 : null;
+}
+
+/* ---------- yardımcılar ---------- */
+function shortAddr(a){return a && a.length>12 ? a.slice(0,4)+'…'+a.slice(-4) : (a||'—')}
+function fmtNum(v,d=2){if(v===null)return '—';const s=Math.abs(v)>=1000?v.toLocaleString('en-US',{maximumFractionDigits:0}):v.toFixed(d);return s}
+function signCls(v){return v===null?'':v>0?'pos':v<0?'neg':''}
+function signPrefix(v){return v>0?'+':''}
+function ago(ts){
+  if(!ts) return '';
+  let t = typeof ts==='number' ? (ts<1e12?ts*1000:ts) : Date.parse(ts);
+  if(isNaN(t)) return '';
+  const s=Math.max(0,(Date.now()-t)/1000);
+  if(s<60)return Math.floor(s)+'s';
+  if(s<3600)return Math.floor(s/60)+'d';
+  if(s<86400)return Math.floor(s/3600)+'sa';
+  return Math.floor(s/86400)+'g';
+}
+function setStatus(kind,text){
+  const d=document.getElementById('statusDot'); d.className='dot'+(kind==='loading'?' loading':kind==='err'?' err':'');
+  document.getElementById('statusText').textContent=text;
+}
+function setSource(src){
+  state.source=src;
+  const b=document.getElementById('srcBadge');
+  b.className='badge-src '+(src==='live'?'live':src==='err'?'err':'demo');
+  b.textContent=src==='live'?'● CANLI VERİ':src==='err'?'● VERİ YOK':'● DEMO VERİ';
+}
+
+/* ---------- leaderboard ---------- */
+async function loadLeaderboard(){
+  const tf=state.tf;
+  document.getElementById('tfPill').textContent=TF_LABEL[tf];
+  document.getElementById('wrPill').textContent=`Win Rate ≥ %${state.minWr}`;
+  let records=null, capturedAt=null;
+  try{
+    const res=await fetch(CFG.leaderboardPath(tf),{cache:'no-store'});
+    if(res.ok){const j=await res.json();records=j.records||j.data||[];capturedAt=j.capturedAt;}
+  }catch(e){/* aşağıda demo */}
+
+  let live=true;
+  if(!records){live=false;records=DEMO.leaderboard[tf]||[];}
+
+  const rows=records.map(r=>({
+    wallet:lbWallet(r), name:lbName(r),
+    pnlSol:lbPnlSol(r), pnlUsd:lbPnlUsd(r),
+    wins:lbWins(r), losses:lbLosses(r), wr:lbWinRate(r),
+  }))
+  .filter(r=> r.wr!==null && r.wr>=state.minWr)
+  .sort((a,b)=> (b.pnlSol??-1e9)-(a.pnlSol??-1e9));
+
+  renderLeaderboard(rows);
+  document.getElementById('lbMeta').textContent=
+    `${rows.length} trader · ${capturedAt?('güncelleme '+ago(capturedAt)+' önce'):''}`;
+  return live;
+}
+
+function renderLeaderboard(rows){
+  const body=document.getElementById('lbBody');
+  if(!rows.length){
+    body.innerHTML=`<tr><td colspan="6"><div class="empty">
+      Bu kriterlere (${TF_LABEL[state.tf]}, Win Rate ≥ %${state.minWr}) uyan trader yok.<br>
+      Filtreyi düşür ya da <code>npm start</code> ile veri toplat.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML=rows.map((r,i)=>{
+    const rank=i+1;
+    const wrCls=r.wr>=70?'good':'mid';
+    const sol=`<span class="${signCls(r.pnlSol)}">${r.pnlSol!==null?signPrefix(r.pnlSol)+fmtNum(r.pnlSol):'—'}</span>`;
+    const usd=r.pnlUsd!==null?`<span class="${signCls(r.pnlUsd)}">${signPrefix(r.pnlUsd)}$${fmtNum(r.pnlUsd,0)}</span>`:'—';
+    const addr=r.wallet?`<a class="addr" href="https://solscan.io/account/${r.wallet}" target="_blank" rel="noopener">${shortAddr(r.wallet)}</a>`:'—';
+    return `<tr>
+      <td class="num rank ${rank<=3?'top':''}">${rank}</td>
+      <td><div class="trader"><span class="nm">${r.name||shortAddr(r.wallet)}</span><span class="wl">${addr}</span></div></td>
+      <td class="num mono">${sol}</td>
+      <td class="num mono">${usd}</td>
+      <td class="num wl-cell"><span class="w">${r.wins}</span> / <span class="l">${r.losses}</span></td>
+      <td class="num"><span class="wr ${wrCls}">%${r.wr.toFixed(0)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------- trade akışı ---------- */
+function tWallet(t){return t.wallet||t.trader_name||t.wallet_address||t.address||null}
+function tSide(t){const s=(t.side||t.type||'').toLowerCase();return s.includes('buy')?'buy':s.includes('sell')?'sell':s||'—'}
+function tToken(t){return t.token||t.token_symbol||t.symbol||'—'}
+function tAmtSol(t){return num(t.amount_sol??t.sol)}
+function tAmtUsd(t){return num(t.amount_usd??t.usd)}
+function tTime(t){return t.timestamp||t.time||t.capturedAt||null}
+function tKey(t){return t.signature||t.txHash||t.hash||t.id||JSON.stringify([tWallet(t),tToken(t),tTime(t)])}
+
+let seenTrades=new Set();
+async function loadTrades(){
+  let lines=null;
+  try{
+    const res=await fetch(CFG.tradesPath,{cache:'no-store'});
+    if(res.ok){lines=(await res.text()).trim().split('\n').filter(Boolean);}
+  }catch(e){/* demo */}
+
+  let live=true, list;
+  if(!lines){live=false;list=DEMO.trades;}
+  else{
+    list=[];
+    for(const ln of lines){try{list.push(JSON.parse(ln));}catch{}}
+  }
+  // en yeni önce
+  list.sort((a,b)=>{
+    const ta=Date.parse(tTime(a))||0, tb=Date.parse(tTime(b))||0; return tb-ta;
+  });
+  renderTrades(list.slice(0,CFG.maxTrades));
+  document.getElementById('feedMeta').textContent=`${Math.min(list.length,CFG.maxTrades)} işlem`;
+  return live;
+}
+
+function renderTrades(list){
+  const feed=document.getElementById('feed');
+  if(!list.length){
+    feed.innerHTML=`<div class="empty">Henüz trade yok.<br><code>npm run trades</code> ya da <code>npm start</code> ile akışı başlat.</div>`;
+    return;
+  }
+  feed.innerHTML=list.map(t=>{
+    const side=tSide(t), who=t.trader_name||shortAddr(tWallet(t));
+    const sol=tAmtSol(t), usd=tAmtUsd(t);
+    const amt=[sol!==null?fmtNum(sol)+' SOL':null, usd!==null?'$'+fmtNum(usd,0):null].filter(Boolean).join(' · ')||'';
+    return `<div class="trade">
+      <span class="side ${side==='buy'?'buy':side==='sell'?'sell':''}">${side.toUpperCase()}</span>
+      <div class="body">
+        <div class="top"><span class="tok">${tToken(t)}</span><span class="ago">${ago(tTime(t))}</span></div>
+        <div class="top"><span class="who">${who}</span><span class="amt">${amt}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- orkestrasyon ---------- */
+async function refresh(){
+  setStatus('loading','Yenileniyor…');
+  try{
+    const [lbLive,trLive]=await Promise.all([loadLeaderboard(),loadTrades()]);
+    const live=lbLive||trLive;
+    setSource(live?'live':'demo');
+    setStatus('ok',`Güncellendi · ${new Date().toLocaleTimeString('tr-TR')}`);
+  }catch(e){
+    setSource('err'); setStatus('err','Hata: '+e.message);
+  }
+}
+function reschedule(){
+  if(state.timer)clearInterval(state.timer);
+  if(state.auto)state.timer=setInterval(refresh,CFG.pollMs);
+}
+
+/* ---------- olaylar ---------- */
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b)return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t===b));
+  state.tf=b.dataset.tf; refresh();
+});
+const wrRange=document.getElementById('wrRange'), wrNum=document.getElementById('wrNum');
+function setWr(v){v=Math.max(0,Math.min(100,+v||0));state.minWr=v;wrRange.value=v;wrNum.value=v;loadLeaderboard();}
+wrRange.addEventListener('input',e=>setWr(e.target.value));
+wrNum.addEventListener('change',e=>setWr(e.target.value));
+document.getElementById('autoChk').addEventListener('change',e=>{state.auto=e.target.checked;reschedule();});
+document.getElementById('refreshBtn').addEventListener('click',refresh);
+
+/* ---------- DEMO veri (gerçek veri yokken yapıyı göstermek için) ---------- */
+const DEMO={
+  leaderboard:{
+    daily:[
+      {trader_name:'Cupsey',wallet_address:'9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',pnl_sol:342.5,pnl_usd:51375,wins:18,losses:6},
+      {trader_name:'Euris',wallet_address:'CRVidEDtEUTYZisCxBZkpELzhQc9eauMLR3FWg74tReL',pnl_sol:210.1,pnl_usd:31515,wins:22,losses:9},
+      {trader_name:'Kev',wallet_address:'7xKXtg2CW3ZQK7uQ2x5wZ8nQ9eYpV5n3JdR6sT1aBcD',pnl_sol:178.9,pnl_usd:26835,wins:14,losses:8},
+      {trader_name:'Pow',wallet_address:'3mZq8pX2rT7vN1cLk9wYbH4dF6sG2jR5eU8aQ1nW0xY',pnl_sol:-44.2,pnl_usd:-6630,wins:5,losses:11},
+      {trader_name:'Loopy',wallet_address:'Ds5W2qP9rT4vN8cLk1wYbH7dF3sG6jR2eU5aQ4nW9xZ',pnl_sol:96.4,pnl_usd:14460,wins:31,losses:12},
+    ],
+    weekly:[
+      {trader_name:'Cupsey',wallet_address:'9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',pnl_sol:1820.7,pnl_usd:273105,wins:96,losses:40},
+      {trader_name:'Euris',wallet_address:'CRVidEDtEUTYZisCxBZkpELzhQc9eauMLR3FWg74tReL',pnl_sol:1340.3,pnl_usd:201045,wins:120,losses:70},
+      {trader_name:'Loopy',wallet_address:'Ds5W2qP9rT4vN8cLk1wYbH7dF3sG6jR2eU5aQ4nW9xZ',pnl_sol:910.0,pnl_usd:136500,wins:150,losses:80},
+    ],
+    monthly:[
+      {trader_name:'Cupsey',wallet_address:'9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',pnl_sol:6420.0,pnl_usd:963000,wins:380,losses:160},
+      {trader_name:'Kev',wallet_address:'7xKXtg2CW3ZQK7uQ2x5wZ8nQ9eYpV5n3JdR6sT1aBcD',pnl_sol:3990.5,pnl_usd:598575,wins:210,losses:120},
+    ],
+  },
+  trades:[
+    {trader_name:'Cupsey',wallet:'9WzD…AWWM',side:'buy',token:'WIF',amount_sol:42.0,amount_usd:6300,timestamp:new Date(Date.now()-15000).toISOString()},
+    {trader_name:'Euris',wallet:'CRVi…tReL',side:'sell',token:'POPCAT',amount_sol:18.5,amount_usd:2775,timestamp:new Date(Date.now()-65000).toISOString()},
+    {trader_name:'Loopy',wallet:'Ds5W…W9xZ',side:'buy',token:'BONK',amount_sol:7.2,amount_usd:1080,timestamp:new Date(Date.now()-180000).toISOString()},
+    {trader_name:'Kev',wallet:'7xKX…aBcD',side:'sell',token:'MEW',amount_sol:23.9,amount_usd:3585,timestamp:new Date(Date.now()-360000).toISOString()},
+  ],
+};
+
+/* başlat */
+refresh();
+reschedule();
+</script>
+</body>
+</html>

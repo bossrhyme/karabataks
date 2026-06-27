@@ -13,6 +13,7 @@
     "trades": "node src/index.js once trades",
     "wallets": "node src/index.js once wallets",
     "discover": "node src/index.js discover",
+    "serve": "node src/serve.js",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {

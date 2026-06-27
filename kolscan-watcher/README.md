@@ -38,6 +38,23 @@ npm run discover -- trades   # veya: leaderboard | wallet
 
 `Ctrl+C` ile düzgün şekilde durur.
 
+## Dashboard (web paneli)
+
+`dashboard.html` — KOL leaderboard'u **günlük / haftalık / aylık** sekmelerine ayıran,
+**Min Win Rate** filtresi (varsayılan **%60**) olan ve **canlı trade akışını** gösteren
+tek dosyalık panel. İzleyicinin `data/` çıktısını okur.
+
+```bash
+npm run serve     # http://localhost:8787 (data/ ile birlikte servis eder)
+# veya: npx serve .    /    python3 -m http.server 8787
+```
+
+- **Win rate filtresi:** Üstteki kaydırıcı/giriş ile eşik ayarlanır (varsayılan %60).
+  Leaderboard kayıtlarında `wins`/`losses`'tan win rate hesaplanır.
+- **Timeframe sekmeleri:** Günlük/Haftalık/Aylık her biri ilgili `data/leaderboard/<tf>.json`'ı gösterir.
+- **Canlı akış:** `data/trades.jsonl`'i periyodik okur (varsayılan 10 sn) ve en yeni işlemleri akıtır.
+- **Veri yokken:** İzleyici henüz çalışmadıysa panel net bir uyarı ve yapıyı gösteren **demo veri** ile açılır.
+
 ## Çıktılar (`data/`)
 
 | Dosya | İçerik |
