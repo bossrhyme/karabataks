@@ -463,12 +463,21 @@ async function fetchPrices(){
   if(!ids.length){ setStatus('ok','Coin ekleyin'); return; }
   setStatus('loading','Güncelleniyor…');
   try{
-    const res = await fetch(`${CG}/simple/price?ids=${ids.join(',')}&vs_currencies=${VS}&include_24hr_change=true`);
+    // coins/markets: fiyat + 24s değişim + logo tek çağrıda
+    const res = await fetch(`${CG}/coins/markets?vs_currency=${VS}&ids=${ids.join(',')}&per_page=250&price_change_percentage=24h`);
     if(!res.ok) throw new Error('http '+res.status);
     const data = await res.json();
-    ids.forEach(id=>{
-      if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] };
+    let changed=false;
+    data.forEach(c=>{
+      prices[c.id] = { price:c.current_price, change24h:c.price_change_percentage_24h };
+      state.portfolios.forEach(pf=>pf.holdings.forEach(h=>{
+        if(h.coinId===c.id){
+          if(c.image && !h.image){ h.image = c.image; changed=true; }
+          if(c.symbol && !h.symbol){ h.symbol = c.symbol.toUpperCase(); changed=true; }
+        }
+      }));
     });
+    if(changed) save();
     const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     setStatus('ok','Güncellendi · '+t);
     render();
