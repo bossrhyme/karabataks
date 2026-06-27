@@ -109,6 +109,15 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .pf-inv-edit.gold{color:#ffd60a;border-color:rgba(255,214,10,.45);text-shadow:0 0 8px rgba(255,214,10,.4)}
 .pf-inv-edit.gold:focus{border-color:#ffd60a}
 
+/* MÜZİK DÜĞMESİ */
+.music-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:500;padding:10px 15px;border-radius:24px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.45);transition:.15s}
+.music-btn:hover{border-color:#4a5468;background:#222a38}
+.music-btn:active{transform:translateY(1px)}
+.music-btn.on{background:var(--green);border-color:var(--green);color:#062012;font-weight:600}
+.music-btn .ic{font-size:15px;line-height:1}
+.music-btn.pulse{animation:mpulse 1.8s ease-in-out infinite}
+@keyframes mpulse{0%,100%{box-shadow:0 6px 20px rgba(0,0,0,.45)}50%{box-shadow:0 4px 26px rgba(38,208,124,.55)}}
+
 /* TABLE */
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -193,6 +202,10 @@ footer a:hover{color:var(--text)}
   Fiyatlar yalnızca tarayıcınızda işlenir, hiçbir veri sunucuya gönderilmez. Veri kaynağı: <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>.
   <br>Bu sayfa yatırım tavsiyesi değildir.
 </footer>
+
+<button class="music-btn pulse" id="musicBtn" title="Müzik aç/kapat">
+  <span class="ic">🔈</span><span class="lbl">Müzik</span>
+</button>
 
 <script>
 const CG = 'https://api.coingecko.com/api/v3';
@@ -673,6 +686,29 @@ render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
 setTimeout(buildFx, 350);
+
+/* ---------- Müzik (YouTube) ---------- */
+const YT_ID = 'mOYZaiDZ7BM';
+let musicFrame = null;
+const musicBtn = document.getElementById('musicBtn');
+musicBtn.addEventListener('click', ()=>{
+  if(musicFrame){
+    musicFrame.remove(); musicFrame = null;
+    musicBtn.classList.remove('on');
+    musicBtn.querySelector('.ic').textContent = '🔈';
+    musicBtn.querySelector('.lbl').textContent = 'Müzik';
+  } else {
+    musicFrame = document.createElement('iframe');
+    musicFrame.allow = 'autoplay';
+    musicFrame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0;pointer-events:none';
+    musicFrame.src = `https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}`;
+    document.body.appendChild(musicFrame);
+    musicBtn.classList.remove('pulse');
+    musicBtn.classList.add('on');
+    musicBtn.querySelector('.ic').textContent = '🔊';
+    musicBtn.querySelector('.lbl').textContent = 'Çalıyor';
+  }
+});
 </script>
 </body>
 </html>
