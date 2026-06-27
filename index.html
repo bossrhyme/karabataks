@@ -464,9 +464,10 @@ const searchCache = {};
 // Dexscreener URL'si veya zincir adresi mi? {chain, addr} ya da null döner
 function parseDexInput(q){
   q = (q||'').trim();
-  let m = q.match(/dexscreener\.com\/([a-z0-9-]+)\/([1-9A-HJ-NP-Za-km-z]{32,48})/i);
+  let m = q.match(/dexscreener\.com\/([a-z0-9-]+)\/(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,48})/i);
   if(m) return { chain:m[1].toLowerCase(), addr:m[2] };
-  if(/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(q)) return { chain:'solana', addr:q };
+  if(/^0x[0-9a-fA-F]{40}$/.test(q)) return { chain:'', addr:q };        // EVM contract
+  if(/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(q)) return { chain:'solana', addr:q }; // Solana contract
   return null;
 }
 async function searchCoins(q){
@@ -563,23 +564,59 @@ function setStatus(s, txt){
   dot.className = 'dot' + (s==='loading'?' loading':s==='err'?' err':'');
   document.getElementById('statusText').textContent = txt;
 }
-// Dexscreener fiyatları (tarayıcı tarafında, CORS destekli)
+// Dexscreener — token (contract) endpoint'i öncelikli, en likit havuzu seç
+function pickBestPair(pairs, addr, chain){
+  if(!pairs || !pairs.length) return null;
+  const a = (addr||'').toLowerCase();
+  let cands = pairs.filter(p=> p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a);
+  if(!cands.length) cands = pairs.slice();
+  if(chain){ const c = cands.filter(p=>p.chainId===chain); if(c.length) cands = c; }
+  cands.sort((x,y)=> ((y.liquidity&&y.liquidity.usd)||0) - ((x.liquidity&&x.liquidity.usd)||0));
+  return cands[0];
+}
+function tokenSideFor(p, addr){
+  const a = (addr||'').toLowerCase();
+  if(p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a) return p.baseToken;
+  if(p.quoteToken && p.quoteToken.address && p.quoteToken.address.toLowerCase()===a) return p.quoteToken;
+  return p.baseToken || p.quoteToken || null;
+}
+async function resolveDexPair(addr, chain){
+  // 1) contract (token) adresi olarak
+  try{
+    const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`);
+    if(r.ok){ const j = await r.json(); const p = pickBestPair(j.pairs, addr, chain); if(p) return p; }
+  }catch(_){}
+  // 2) pair adresi olarak (yedek)
+  try{
+    const r2 = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain||'solana'}/${addr}`);
+    if(r2.ok){ const j2 = await r2.json(); return (j2.pairs && j2.pairs[0]) || j2.pair || null; }
+  }catch(_){}
+  return null;
+}
+// Arama kutusu için: token bilgisini (isim/sembol/görsel) çek
+async function dexLookup(addr, chain){
+  const p = await resolveDexPair(addr, chain);
+  if(!p) return null;
+  if(p.priceUsd!=null) prices['dex:'+addr] = { price:parseFloat(p.priceUsd), change24h:(p.priceChange&&p.priceChange.h24)||0 };
+  const tok = tokenSideFor(p, addr);
+  return {
+    dex:addr, chain:(p.chainId||chain||'solana'), id:'dex:'+addr,
+    name:(tok&&tok.name)||'Dexscreener token',
+    symbol:(tok&&tok.symbol)?tok.symbol.toUpperCase():'DEX',
+    image:(p.info&&p.info.imageUrl)||''
+  };
+}
 async function fetchDex(){
   const list = dexList();
   if(!list.length) return;
   await Promise.all(list.map(async d=>{
     try{
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${d.chain}/${d.addr}`);
-      if(!res.ok) return;
-      const data = await res.json();
-      const p = (data.pairs && data.pairs[0]) || data.pair;
+      const p = await resolveDexPair(d.addr, d.chain);
       if(!p || p.priceUsd==null) return;
       prices['dex:'+d.addr] = { price:parseFloat(p.priceUsd), change24h:(p.priceChange && p.priceChange.h24) || 0 };
-      // isim/sembol/görseli ilk veride otomatik doldur
+      const tok = tokenSideFor(p, d.addr);
       let changed=false;
-      const sym = p.baseToken && p.baseToken.symbol;
-      const nm  = p.baseToken && p.baseToken.name;
-      const img = p.info && p.info.imageUrl;
+      const sym = tok && tok.symbol, nm = tok && tok.name, img = p.info && p.info.imageUrl;
       state.portfolios.forEach(pf=>pf.holdings.forEach(h=>{
         if(h.dex===d.addr){
           if(sym && (!h.symbol || h.symbol==='DEX')){ h.symbol = sym.toUpperCase(); changed=true; }
@@ -626,11 +663,20 @@ document.addEventListener('input', e=>{
     const q = t.value;
     clearTimeout(searchDebounce[pfId]);
     if(q.trim().length<2){ hideResults(pfId); return; }
-    // Dexscreener linki / adresi mi?
+    // Dexscreener linki / contract adresi mi?
     const dex = parseDexInput(q);
     if(dex){
+      const token = q;
       showResults(pfId, [{ dex:dex.addr, chain:dex.chain, id:'dex:'+dex.addr,
-        name:'Dexscreener token', symbol:'DEX', image:'' }]);
+        name:'Aranıyor…', symbol:'', image:'' }]);
+      dexLookup(dex.addr, dex.chain).then(info=>{
+        // kullanıcı bu sırada başka bir şey yazdıysa güncelleme
+        const cur = document.querySelector(`[data-search="${pfId}"]`);
+        if(!cur || cur.value!==token) return;
+        if(info) showResults(pfId, [info]);
+        else showResults(pfId, [{ dex:dex.addr, chain:dex.chain, id:'dex:'+dex.addr,
+          name:'Bulunamadı — adresi kontrol edin', symbol:'DEX', image:'' }]);
+      });
       return;
     }
     searchDebounce[pfId] = setTimeout(async ()=>{
