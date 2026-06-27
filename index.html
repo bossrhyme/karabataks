@@ -301,7 +301,7 @@ function resolveSeedUsd(){
   let changed=false;
   state.portfolios.forEach(p=>p.holdings.forEach(h=>{
     if(h.seedUsd!=null && (!h.quantity || h.quantity===0)){
-      const pr = prices[h.coinId];
+      const pr = prices[priceKeyOf(h)];
       if(pr && pr.price>0){ h.quantity = h.seedUsd/pr.price; delete h.seedUsd; changed=true; }
     }
   }));
@@ -309,10 +309,17 @@ function resolveSeedUsd(){
 }
 
 /* ---------- Helpers ---------- */
-function allCoinIds(){
+// Fiyat anahtarı: Dexscreener varlıkları için 'dex:<adres>', diğerleri CoinGecko id
+function priceKeyOf(h){ return h.dex ? ('dex:'+h.dex) : h.coinId; }
+function cgIds(){
   const set = new Set();
-  state.portfolios.forEach(p=>p.holdings.forEach(h=>set.add(h.coinId)));
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{ if(!h.dex && h.coinId) set.add(h.coinId); }));
   return [...set];
+}
+function dexList(){
+  const map = new Map();
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{ if(h.dex) map.set(h.dex,{addr:h.dex,chain:h.chain||'solana'}); }));
+  return [...map.values()];
 }
 function fmtMoney(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
@@ -341,7 +348,7 @@ function hasManualInvested(p){ return p && p.invested!==undefined && p.invested!
 function pfSummary(p){
   let holdInvested=0, value=0;
   p.holdings.forEach(h=>{
-    const pr = prices[h.coinId];
+    const pr = prices[priceKeyOf(h)];
     holdInvested += Number(h.invested)||0;
     if(pr) value += (Number(h.quantity)||0) * pr.price;
   });
@@ -378,13 +385,13 @@ function renderPortfolios(){
 }
 
 function holdingValue(h){
-  const pr = prices[h.coinId];
+  const pr = prices[priceKeyOf(h)];
   return pr ? (Number(h.quantity)||0)*pr.price : 0;
 }
 function renderPortfolio(p, idx){
   const sorted = p.holdings.slice().sort((a,b)=>holdingValue(b)-holdingValue(a));
   const rows = sorted.map(h=>{
-    const pr = prices[h.coinId];
+    const pr = prices[priceKeyOf(h)];
     const qty = Number(h.quantity)||0;
     const curVal = pr ? qty*pr.price : null;
     return `<tr>
@@ -436,7 +443,7 @@ function renderPortfolio(p, idx){
         <div class="fld coin-fld">
           <label>Coin</label>
           <div data-coinslot="${p.id}">
-            <input type="text" placeholder="Ara: bitcoin, eth, solana…" autocomplete="off" data-search="${p.id}">
+            <input type="text" placeholder="Ara: bitcoin, eth… veya Dexscreener linki" autocomplete="off" data-search="${p.id}">
           </div>
         </div>
         <div class="fld num"><label>Adet</label><input type="number" step="any" min="0" placeholder="0" data-qty="${p.id}"></div>
@@ -454,6 +461,14 @@ function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt
 const selectedCoin = {}; // pfId -> coin obj
 const searchCache = {};
 
+// Dexscreener URL'si veya zincir adresi mi? {chain, addr} ya da null döner
+function parseDexInput(q){
+  q = (q||'').trim();
+  let m = q.match(/dexscreener\.com\/([a-z0-9-]+)\/([1-9A-HJ-NP-Za-km-z]{32,48})/i);
+  if(m) return { chain:m[1].toLowerCase(), addr:m[2] };
+  if(/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(q)) return { chain:'solana', addr:q };
+  return null;
+}
 async function searchCoins(q){
   q = q.trim().toLowerCase();
   if(searchCache[q]) return searchCache[q];
@@ -497,7 +512,7 @@ function pickCoin(pfId, coin){
 function clearCoin(pfId){
   delete selectedCoin[pfId];
   const slot = document.querySelector(`[data-coinslot="${pfId}"]`);
-  slot.innerHTML = `<input type="text" placeholder="Ara: bitcoin, eth, solana…" autocomplete="off" data-search="${pfId}">`;
+  slot.innerHTML = `<input type="text" placeholder="Ara: bitcoin, eth… veya Dexscreener linki" autocomplete="off" data-search="${pfId}">`;
   const inp = slot.querySelector('input'); if(inp) inp.focus();
 }
 
@@ -507,10 +522,17 @@ function addHolding(pfId){
   const qty = parseFloat(document.querySelector(`[data-qty="${pfId}"]`).value);
   if(!coin){ flash(pfId,'Önce bir coin seçin'); return; }
   const p = state.portfolios.find(x=>x.id===pfId);
+  const isDex = !!coin.dex;
   // merge if exists
-  const existing = p.holdings.find(h=>h.coinId===coin.id);
+  const existing = p.holdings.find(h=> isDex ? h.dex===coin.dex : (!h.dex && h.coinId===coin.id));
   if(existing){
     existing.quantity = (Number(existing.quantity)||0) + (isNaN(qty)?0:qty);
+  } else if(isDex){
+    p.holdings.push({
+      id: pid(), dex: coin.dex, chain: coin.chain||'solana',
+      name: coin.name, symbol: coin.symbol.toUpperCase(), image: coin.image,
+      quantity: isNaN(qty)?0:qty, invested: 0
+    });
   } else {
     p.holdings.push({
       id: pid(), coinId: coin.id, name: coin.name,
@@ -541,22 +563,55 @@ function setStatus(s, txt){
   dot.className = 'dot' + (s==='loading'?' loading':s==='err'?' err':'');
   document.getElementById('statusText').textContent = txt;
 }
+// Dexscreener fiyatları (tarayıcı tarafında, CORS destekli)
+async function fetchDex(){
+  const list = dexList();
+  if(!list.length) return;
+  await Promise.all(list.map(async d=>{
+    try{
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${d.chain}/${d.addr}`);
+      if(!res.ok) return;
+      const data = await res.json();
+      const p = (data.pairs && data.pairs[0]) || data.pair;
+      if(!p || p.priceUsd==null) return;
+      prices['dex:'+d.addr] = { price:parseFloat(p.priceUsd), change24h:(p.priceChange && p.priceChange.h24) || 0 };
+      // isim/sembol/görseli ilk veride otomatik doldur
+      let changed=false;
+      const sym = p.baseToken && p.baseToken.symbol;
+      const nm  = p.baseToken && p.baseToken.name;
+      const img = p.info && p.info.imageUrl;
+      state.portfolios.forEach(pf=>pf.holdings.forEach(h=>{
+        if(h.dex===d.addr){
+          if(sym && (!h.symbol || h.symbol==='DEX')){ h.symbol = sym.toUpperCase(); changed=true; }
+          if(nm  && (!h.name || h.name==='Dexscreener token')){ h.name = nm; changed=true; }
+          if(img && !h.image){ h.image = img; changed=true; }
+        }
+      }));
+      if(changed) save();
+    }catch(e){}
+  }));
+}
 async function fetchPrices(){
-  const ids = allCoinIds();
-  if(!ids.length){ setStatus('ok','Coin ekleyin'); return; }
+  const ids = cgIds();
+  const dl = dexList();
+  if(!ids.length && !dl.length){ setStatus('ok','Coin ekleyin'); return; }
   setStatus('loading','Güncelleniyor…');
   try{
-    const res = await fetch(`${CG}/simple/price?ids=${ids.join(',')}&vs_currencies=${VS}&include_24hr_change=true`);
-    if(!res.ok) throw new Error('http '+res.status);
-    const data = await res.json();
-    ids.forEach(id=>{
-      if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] };
-    });
+    if(ids.length){
+      const res = await fetch(`${CG}/simple/price?ids=${ids.join(',')}&vs_currencies=${VS}&include_24hr_change=true`);
+      if(!res.ok) throw new Error('http '+res.status);
+      const data = await res.json();
+      ids.forEach(id=>{
+        if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] };
+      });
+    }
+    await fetchDex();
     resolveSeedUsd();
     const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     setStatus('ok','Güncellendi · '+t);
     render();
   }catch(e){
+    try{ await fetchDex(); resolveSeedUsd(); render(); }catch(_){}
     setStatus('err','Bağlantı hatası — tekrar denenecek');
   }
 }
@@ -571,6 +626,13 @@ document.addEventListener('input', e=>{
     const q = t.value;
     clearTimeout(searchDebounce[pfId]);
     if(q.trim().length<2){ hideResults(pfId); return; }
+    // Dexscreener linki / adresi mi?
+    const dex = parseDexInput(q);
+    if(dex){
+      showResults(pfId, [{ dex:dex.addr, chain:dex.chain, id:'dex:'+dex.addr,
+        name:'Dexscreener token', symbol:'DEX', image:'' }]);
+      return;
+    }
     searchDebounce[pfId] = setTimeout(async ()=>{
       try{ showResults(pfId, await searchCoins(q)); }
       catch(err){ flash(pfId,'Arama hatası'); }
