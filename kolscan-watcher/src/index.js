@@ -8,13 +8,12 @@
 //   node src/index.js once wallets     # izlenen cüzdanları çek
 //   node src/index.js discover trades  # endpoint/şema keşfi (trades|leaderboard|wallet)
 import { config } from './config.js';
-import { closeBrowser } from './browser.js';
-import { scrapeLeaderboard } from './leaderboard.js';
-import { TradesWatcher, scrapeTradesOnce } from './trades.js';
-import { scrapeWallets } from './wallet.js';
-import { discover } from './discover.js';
+import { fetchAllLeaderboards, TradeStream } from './providers/solanatracker.js';
 import { sleep } from './util.js';
 import { makeLogger } from './log.js';
+
+// Playwright'a dokunan modüller yalnızca scraping modlarında dinamik yüklenir;
+// böylece `api` modu Playwright kurulu olmadan da çalışır.
 
 const log = makeLogger('main');
 
@@ -38,12 +37,17 @@ function schedule(name, fn, intervalMs, signal) {
 }
 
 async function runWatcher() {
-  log.info('kolscan-watcher başlıyor (sürekli mod)');
+  log.info('kolscan-watcher başlıyor (sürekli mod / Playwright scraping)');
   log.info(
     `leaderboard her ${config.leaderboardIntervalMs / 1000}s, ` +
       `wallets her ${config.walletIntervalMs / 1000}s, ` +
       `trades sürekli. İzlenen cüzdan: ${config.wallets.length}`
   );
+
+  const { closeBrowser } = await import('./browser.js');
+  const { scrapeLeaderboard } = await import('./leaderboard.js');
+  const { TradesWatcher } = await import('./trades.js');
+  const { scrapeWallets } = await import('./wallet.js');
 
   const ac = new AbortController();
   const trades = new TradesWatcher();
@@ -75,6 +79,32 @@ async function runWatcher() {
   }
 }
 
+// Solana Tracker API tabanlı izleyici — scraping yok, gerçek API.
+async function runApiWatcher() {
+  log.info('kolscan-watcher başlıyor (Solana Tracker API modu)');
+  const ac = new AbortController();
+  const stream = new TradeStream({ reconnectMs: config.tradesReconnectMs });
+
+  let shuttingDown = false;
+  async function shutdown(sig) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.warn(`${sig} alındı, kapatılıyor...`);
+    ac.abort();
+    stream.stop();
+    await sleep(300);
+    log.info('güle güle');
+    process.exit(0);
+  }
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // Canlı trade akışı (kendi reconnect döngüsü var).
+  stream.start().catch((e) => log.error(`trade stream öldü: ${e.message}`));
+  // Periyodik leaderboard.
+  schedule('st-leaderboard', () => fetchAllLeaderboards(config.timeframes), config.leaderboardIntervalMs, ac.signal);
+}
+
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
 
@@ -84,19 +114,28 @@ async function main() {
       return; // süreç sinyale kadar açık kalır
     }
 
-    if (cmd === 'once') {
-      if (arg === 'leaderboard') await scrapeLeaderboard();
-      else if (arg === 'trades') await scrapeTradesOnce(Number(process.argv[4]) || 30_000);
-      else if (arg === 'wallets') await scrapeWallets();
+    if (cmd === 'api') {
+      if (arg === 'leaderboard') await fetchAllLeaderboards(config.timeframes);
+      else {
+        await runApiWatcher();
+        return; // sinyale kadar açık kal
+      }
+    } else if (cmd === 'once') {
+      if (arg === 'leaderboard') await (await import('./leaderboard.js')).scrapeLeaderboard();
+      else if (arg === 'trades') await (await import('./trades.js')).scrapeTradesOnce(Number(process.argv[4]) || 30_000);
+      else if (arg === 'wallets') await (await import('./wallet.js')).scrapeWallets();
       else log.error(`'once' için geçersiz modül: ${arg} (leaderboard|trades|wallets)`);
     } else if (cmd === 'discover') {
-      await discover(arg || 'trades', Number(process.argv[4]) || 30_000);
+      await (await import('./discover.js')).discover(arg || 'trades', Number(process.argv[4]) || 30_000);
     } else {
       log.error(`bilinmeyen komut: ${cmd}`);
-      log.info('komutlar: start | once <modül> | discover <hedef>');
+      log.info('komutlar: start | api [leaderboard] | once <modül> | discover <hedef>');
     }
   } finally {
-    if (cmd && cmd !== 'start' && cmd !== 'watch') await closeBrowser();
+    // Yalnızca Playwright kullanan modlarda tarayıcıyı kapat.
+    if (['once', 'discover'].includes(cmd)) {
+      await (await import('./browser.js')).closeBrowser();
+    }
   }
 }
 

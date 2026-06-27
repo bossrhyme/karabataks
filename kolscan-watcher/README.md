@@ -55,6 +55,25 @@ npm run serve     # http://localhost:8787 — repo kökünü + kolscan-watcher/d
 - **Canlı akış:** `data/trades.jsonl`'i periyodik okur (varsayılan 10 sn) ve en yeni işlemleri akıtır.
 - **Veri yokken:** İzleyici henüz çalışmadıysa panel net bir uyarı ve yapıyı gösteren **demo veri** ile açılır.
 
+## Gerçek API modu (Solana Tracker) — scraping'siz, demo'suz
+
+kolscan'i Cloudflare arkasından kazımak yerine **gerçek bir API'den** aynı `data/`
+dosyalarını doldurabilirsin. [Solana Tracker](https://www.solanatracker.io/data-api)
+doğrudan bir **kolscan KOL leaderboard endpoint'i** (`/v2/pnl/leaderboard/kols`) ve
+**Datastream WebSocket** (canlı trade) sunar; ücretsiz katmanı var.
+
+```bash
+export SOLANATRACKER_API_KEY=...      # ücretsiz anahtar: solanatracker.io/data-api
+npm run api                # sürekli: leaderboard (periyodik) + canlı trade (WebSocket)
+npm run api:leaderboard    # tek seferlik leaderboard
+```
+
+Aynı `data/leaderboard/<tf>.json` ve `data/trades.jsonl` dosyalarını yazar →
+**dashboard hiç değişmeden gerçek veriyle çalışır, demo otomatik kalkar.**
+
+> Adaptör: `src/providers/solanatracker.js`. Endpoint yolu/alan adları doküman
+> sürümüne göre küçük farklıysa oradan tek satırda güncellenir.
+
 ## Çıktılar (`data/`)
 
 | Dosya | İçerik |
