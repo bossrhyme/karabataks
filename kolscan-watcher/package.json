@@ -1,0 +1,21 @@
+{
+  "name": "kolscan-watcher",
+  "version": "1.0.0",
+  "description": "kolscan.io canlı izleyici — KOL leaderboard, gerçek zamanlı trade akışı ve tekil cüzdan geçmişini Playwright ile çeker ve biriktirir.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "leaderboard": "node src/index.js once leaderboard",
+    "trades": "node src/index.js once trades",
+    "wallets": "node src/index.js once wallets",
+    "discover": "node src/index.js discover",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
