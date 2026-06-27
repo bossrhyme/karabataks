@@ -71,19 +71,20 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 
 /* Giriş animasyonu — ilk portföy üzerine patlama/slot/konfeti */
 .fx-overlay{position:fixed;overflow:hidden;pointer-events:none;z-index:45}
-.fx{position:absolute;top:0;line-height:1;will-change:transform,opacity}
-.fx.fall{animation:fx-fall linear forwards}
+.fx{position:absolute;top:0;line-height:1;will-change:top,transform,opacity}
+.fx.fall{animation:fx-fall linear infinite}
 @keyframes fx-fall{
-  0%{transform:translate(0,-20px) rotate(0);opacity:0}
+  0%{top:-6%;transform:translateX(0) rotate(0);opacity:0}
   6%{opacity:1}
   88%{opacity:1}
-  100%{transform:translate(var(--dx),var(--ty)) rotate(var(--rot));opacity:0}
+  100%{top:104%;transform:translateX(var(--dx)) rotate(var(--rot));opacity:0}
 }
-.fx.boom{animation:fx-boom ease-out forwards}
+.fx.boom{animation:fx-boom ease-out infinite}
 @keyframes fx-boom{
   0%{transform:scale(.2);opacity:0}
-  25%{opacity:1}
-  60%{transform:scale(1.5);opacity:1}
+  3%{opacity:1}
+  9%{transform:scale(1.6);opacity:1}
+  15%{transform:scale(2.1);opacity:0}
   100%{transform:scale(2.1);opacity:0}
 }
 
@@ -320,6 +321,7 @@ function clsOf(n){ return n>0?'pos':(n<0?'neg':'muted'); }
 function render(){
   renderPortfolios();
   renderGrand();
+  positionFx();
 }
 
 function hasManualInvested(p){ return p && p.invested!==undefined && p.invested!==null && p.invested!==''; }
@@ -610,19 +612,29 @@ document.addEventListener('click', e=>{
 
 document.getElementById('refreshBtn').addEventListener('click', fetchPrices);
 
-/* ---------- Giriş animasyonu ---------- */
-function playIntroAnimation(){
-  const card = document.querySelector('.pf'); // ilk portföy kartı
-  if(!card) return;
-  const r = card.getBoundingClientRect();
-  if(r.width<10 || r.height<10) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'fx-overlay';
-  overlay.style.left = r.left+'px';
-  overlay.style.top = r.top+'px';
-  overlay.style.width = r.width+'px';
-  overlay.style.height = r.height+'px';
-  document.body.appendChild(overlay);
+/* ---------- Giriş animasyonu (sürekli döngü) ---------- */
+let fxOverlay = null;
+function positionFx(){
+  if(!fxOverlay) return;
+  const g = document.querySelector('#grandTotals .gstat'); // "Ko Invest Böcek Portföy" kartı
+  const p = document.querySelector('.pf');                 // 1. portföy kartı
+  if(!g || !p) return;
+  const a = g.getBoundingClientRect(), b = p.getBoundingClientRect();
+  const left = Math.min(a.left, b.left);
+  const top = a.top;
+  const right = Math.max(a.right, b.right);
+  const bottom = b.bottom;
+  if(right-left < 10 || bottom-top < 10) return;
+  fxOverlay.style.left = left+'px';
+  fxOverlay.style.top = top+'px';
+  fxOverlay.style.width = (right-left)+'px';
+  fxOverlay.style.height = (bottom-top)+'px';
+}
+function buildFx(){
+  if(fxOverlay) return;
+  fxOverlay = document.createElement('div');
+  fxOverlay.className = 'fx-overlay';
+  document.body.appendChild(fxOverlay);
   const fall = ['🎉','🎊','💸','🪙','🎲','🎰','🔫','💵'];
   const boom = ['💥','💥','🔫','🎰'];
   const N = 64;
@@ -635,32 +647,32 @@ function playIntroAnimation(){
       e.style.left = (Math.random()*86+4)+'%';
       e.style.top  = (Math.random()*84+6)+'%';
       e.style.fontSize = (Math.random()*22+22)+'px';
-      e.style.animationDuration = (Math.random()*0.6+0.9)+'s';
-      e.style.animationDelay = (Math.random()*4)+'s';
+      const d = 8; // ~8 sn döngü
+      e.style.animationDuration = d+'s';
+      e.style.animationDelay = (-Math.random()*d)+'s';
     } else {
       e.className = 'fx fall';
       e.textContent = fall[Math.floor(Math.random()*fall.length)];
       e.style.left = (Math.random()*100)+'%';
-      // kartın en altına kadar insin (kendi yüksekliği kadar değil)
-      e.style.setProperty('--ty', (r.height*(0.92+Math.random()*0.12))+'px');
       e.style.setProperty('--dx', (Math.random()*120-60)+'px');
       e.style.setProperty('--rot', (Math.random()*720-360)+'deg');
       e.style.fontSize = (Math.random()*16+16)+'px';
-      // daha yavaş iniş
-      e.style.animationDuration = (Math.random()*3.5+4.5)+'s';
-      e.style.animationDelay = (Math.random()*2.4)+'s';
+      const d = 7.4 + Math.random()*1.4; // ~8 sn'de bir tekrar
+      e.style.animationDuration = d+'s';
+      e.style.animationDelay = (-Math.random()*d)+'s'; // döngüyü baştan dolu başlat
     }
-    overlay.appendChild(e);
+    fxOverlay.appendChild(e);
   }
-  setTimeout(()=>overlay.remove(), 11000);
+  positionFx();
 }
+window.addEventListener('resize', positionFx);
 
 /* ---------- Init ---------- */
 applySeed();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
-setTimeout(playIntroAnimation, 350);
+setTimeout(buildFx, 350);
 </script>
 </body>
 </html>
