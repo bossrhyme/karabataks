@@ -190,6 +190,34 @@ const SEED = [
 ];
 const SEED_INVESTED = 300000; // ilk portföy geneli yatırılan tutar (USD), coinlere dağıtılmaz
 
+/* İkinci portföy için tek seferlik başlangıç varlıkları
+   - quantity: adet biliniyor (Binance ekranları)
+   - seedUsd: yalnızca USD değeri biliniyor; adet ilk fiyat çekilince değer/fiyat ile hesaplanır */
+const SEED2_FLAG = 'cryptoPortfolioSeed2V1';
+const SEED2 = [
+  // Binance — adet
+  { coinId:'holotoken',    name:'Holo',         symbol:'HOT',  image:'', quantity:2001880,  invested:0 },
+  { coinId:'arbitrum',     name:'Arbitrum',     symbol:'ARB',  image:'', quantity:3707.8,   invested:0 },
+  { coinId:'oasis-network',name:'Oasis Network',symbol:'ROSE', image:'', quantity:30251.2,  invested:0 },
+  { coinId:'celestia',     name:'Celestia',     symbol:'TIA',  image:'', quantity:400,      invested:0 },
+  { coinId:'tezos',        name:'Tezos',        symbol:'XTZ',  image:'', quantity:492.79,   invested:0 },
+  { coinId:'mina-protocol',name:'Mina',         symbol:'MINA', image:'', quantity:2000,     invested:0 },
+  { coinId:'eigenlayer',   name:'EigenLayer',   symbol:'EIGEN',image:'', quantity:302.82,   invested:0 },
+  { coinId:'memecoin',     name:'Memecoin',     symbol:'MEME', image:'', quantity:62360,    invested:0 },
+  { coinId:'pixels',       name:'Pixels',       symbol:'PIXEL',image:'', quantity:6305.3,   invested:0 },
+  { coinId:'binancecoin',  name:'BNB',          symbol:'BNB',  image:'', quantity:0.0152,   invested:0 },
+  // "Yatırımlar" ekranı — yalnızca USD değeri (adet otomatik hesaplanacak)
+  { coinId:'chainlink',    name:'Chainlink',    symbol:'LINK', image:'', seedUsd:192.72, quantity:0, invested:0 },
+  { coinId:'avalanche-2',  name:'Avalanche',    symbol:'AVAX', image:'', seedUsd:751.40, quantity:0, invested:0 },
+  { coinId:'uniswap',      name:'Uniswap',      symbol:'UNI',  image:'', seedUsd:642.84, quantity:0, invested:0 },
+  { coinId:'stellar',      name:'Stellar',      symbol:'XLM',  image:'', seedUsd:262.23, quantity:0, invested:0 },
+  { coinId:'ripple',       name:'XRP',          symbol:'XRP',  image:'', seedUsd:173.87, quantity:0, invested:0 },
+  { coinId:'solana',       name:'Solana',       symbol:'SOL',  image:'', seedUsd:304.38, quantity:0, invested:0 },
+  { coinId:'cardano',      name:'Cardano',      symbol:'ADA',  image:'', seedUsd:131.67, quantity:0, invested:0 },
+  { coinId:'aave',         name:'Aave',         symbol:'AAVE', image:'', seedUsd:97.68,  quantity:0, invested:0 },
+  { coinId:'litecoin',     name:'Litecoin',     symbol:'LTC',  image:'', seedUsd:139.81, quantity:0, invested:0 }
+];
+
 /* ---------- State ---------- */
 let state = loadState();
 let prices = {};        // coinId -> {price, change24h}
@@ -217,15 +245,31 @@ function loadState(){
 function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 function pid(){ return 'p'+Math.random().toString(36).slice(2,9); }
 function applySeed(){
-  if(localStorage.getItem(SEED_FLAG)) return;
-  const p = state.portfolios[0];
-  SEED.forEach(s=>{
-    if(!p.holdings.some(h=>h.coinId===s.coinId)) p.holdings.push({ id:pid(), ...s });
-  });
-  // Portföy geneli yatırılan tutarı, kullanıcı daha önce elle girmediyse ayarla
-  if(!hasManualInvested(p)) p.invested = SEED_INVESTED;
-  localStorage.setItem(SEED_FLAG,'1');
+  // 1. portföy
+  if(!localStorage.getItem(SEED_FLAG)){
+    const p = state.portfolios[0];
+    SEED.forEach(s=>{ if(!p.holdings.some(h=>h.coinId===s.coinId)) p.holdings.push({ id:pid(), ...s }); });
+    if(!hasManualInvested(p)) p.invested = SEED_INVESTED;
+    localStorage.setItem(SEED_FLAG,'1');
+  }
+  // 2. portföy
+  if(!localStorage.getItem(SEED2_FLAG) && state.portfolios[1]){
+    const p = state.portfolios[1];
+    SEED2.forEach(s=>{ if(!p.holdings.some(h=>h.coinId===s.coinId)) p.holdings.push({ id:pid(), ...s }); });
+    localStorage.setItem(SEED2_FLAG,'1');
+  }
   save();
+}
+// seedUsd'li varlıkların adetini ilk fiyatla hesapla (değer / fiyat)
+function resolveSeedUsd(){
+  let changed=false;
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{
+    if(h.seedUsd!=null && (!h.quantity || h.quantity===0)){
+      const pr = prices[h.coinId];
+      if(pr && pr.price>0){ h.quantity = h.seedUsd/pr.price; delete h.seedUsd; changed=true; }
+    }
+  }));
+  if(changed) save();
 }
 
 /* ---------- Helpers ---------- */
@@ -464,6 +508,7 @@ async function fetchPrices(){
     ids.forEach(id=>{
       if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] };
     });
+    resolveSeedUsd();
     const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     setStatus('ok','Güncellendi · '+t);
     render();
