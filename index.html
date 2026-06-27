@@ -67,6 +67,7 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .gstat .gpct{font-size:12.5px;font-family:var(--mono);margin-top:2px}
 .gstat .gsub{display:flex;gap:16px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text3);flex-wrap:wrap}
 .gstat .gsub b{color:var(--text2);font-family:var(--mono);font-weight:500}
+.meme-img{display:block;width:100%;border-radius:8px;margin-top:12px}
 
 /* PORTFOLIOS */
 .portfolios{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -180,6 +181,9 @@ const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
 const STORE_KEY = 'cryptoPortfolioV1';
+// İlk portföy kartındaki "bet more" görseli. Repoya betmore.gif/.jpg ekleyin
+// veya buraya doğrudan bir görsel URL'si yazın.
+const MEME_URL = 'betmore.gif';
 
 /* Birinci portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
 const SEED_FLAG = 'cryptoPortfolioSeedV2';
@@ -315,7 +319,7 @@ function pfSummary(p){
   return {invested, value, pl, plPct, holdInvested};
 }
 function investLabel(idx){ return idx===0 ? 'Batırılan' : 'Yatırılan'; }
-function grandCard(title, s, isTotal, label){
+function grandCard(title, s, isTotal, label, isFirst){
   return `<div class="gstat${isTotal?' total':''}">
       <div class="gtitle">${escapeHtml(title)}</div>
       <div class="gpl ${clsOf(s.pl)}">${fmtMoney(s.pl)}</div>
@@ -324,10 +328,11 @@ function grandCard(title, s, isTotal, label){
         <span class="gold">${label||'Yatırılan'} <b>${fmtMoney(s.invested)}</b></span>
         <span>Değer <b>${fmtMoney(s.value)}</b></span>
       </div>
+      ${isFirst ? `<img class="meme-img" src="${MEME_URL}" alt="bet more" onerror="this.style.display='none'">` : ''}
     </div>`;
 }
 function renderGrand(){
-  const cards = state.portfolios.map((p,i)=>grandCard(p.name, pfSummary(p), false, investLabel(i)));
+  const cards = state.portfolios.map((p,i)=>grandCard(p.name, pfSummary(p), false, investLabel(i), i===0));
   document.getElementById('grandTotals').innerHTML = cards.join('');
 }
 
