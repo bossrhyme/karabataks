@@ -294,8 +294,13 @@ function renderPortfolios(){
   });
 }
 
+function holdingValue(h){
+  const pr = prices[h.coinId];
+  return pr ? (Number(h.quantity)||0)*pr.price : 0;
+}
 function renderPortfolio(p, idx){
-  const rows = p.holdings.map(h=>{
+  const sorted = p.holdings.slice().sort((a,b)=>holdingValue(b)-holdingValue(a));
+  const rows = sorted.map(h=>{
     const pr = prices[h.coinId];
     const qty = Number(h.quantity)||0;
     const curVal = pr ? qty*pr.price : null;
