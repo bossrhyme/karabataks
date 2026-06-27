@@ -239,7 +239,7 @@ const SEED2 = [
   { coinId:'tezos',        name:'Tezos',        symbol:'XTZ',  image:'', quantity:492.79,   invested:0 },
   { coinId:'mina-protocol',name:'Mina',         symbol:'MINA', image:'', quantity:2000,     invested:0 },
   { coinId:'eigenlayer',   name:'EigenLayer',   symbol:'EIGEN',image:'', quantity:302.82,   invested:0 },
-  { coinId:'memecoin',     name:'Memecoin',     symbol:'MEME', image:'', quantity:62360,    invested:0 },
+  { coinId:'memecoin-2',   name:'Memecoin',     symbol:'MEME', image:'', quantity:62360,    invested:0 },
   { coinId:'pixels',       name:'Pixels',       symbol:'PIXEL',image:'', quantity:6305.3,   invested:0 },
   { coinId:'binancecoin',  name:'BNB',          symbol:'BNB',  image:'', quantity:0.0152,   invested:0 },
   // "Yatırımlar" ekranı — yalnızca USD değeri (adet otomatik hesaplanacak)
@@ -295,6 +295,15 @@ function applySeed(){
     localStorage.setItem(SEED2_FLAG,'1');
   }
   save();
+}
+// Eskiden yanlış kaydedilmiş CoinGecko id'lerini düzelt (mevcut localStorage için)
+const COINID_FIXES = { 'memecoin':'memecoin-2' };
+function migrateCoinIds(){
+  let changed=false;
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{
+    if(h.coinId && COINID_FIXES[h.coinId]){ h.coinId = COINID_FIXES[h.coinId]; changed=true; }
+  }));
+  if(changed) save();
 }
 // seedUsd'li varlıkların adetini ilk fiyatla hesapla (değer / fiyat)
 function resolveSeedUsd(){
@@ -799,6 +808,7 @@ window.addEventListener('resize', positionFx);
 
 /* ---------- Init ---------- */
 applySeed();
+migrateCoinIds();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
