@@ -182,7 +182,7 @@ footer a:hover{color:var(--text)}
     <div class="logo">📊</div>
     <div>
       <h1>Kripto Portföy Takip</h1>
-      <div class="sub">Canlı fiyatlar · CoinGecko</div>
+      <div class="sub">Canlı fiyatlar · CoinGecko + Dexscreener (contract)</div>
     </div>
   </div>
   <div class="hsp"></div>
@@ -212,47 +212,18 @@ const CG = 'https://api.coingecko.com/api/v3';
 const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
-const STORE_KEY = 'cryptoPortfolioV1';
+const STORE_KEY = 'cryptoPortfolioContractV1';
 // İlk portföy kartındaki "bet more" görseli. Repoya betmore.gif/.jpg ekleyin
 // veya buraya doğrudan bir görsel URL'si yazın.
 const MEME_URL = 'betmore.jpg';
 
-/* Birinci portföy için tek seferlik başlangıç varlıkları (yalnızca adet) */
-const SEED_FLAG = 'cryptoPortfolioSeedV2';
-const SEED = [
-  { coinId:'holotoken', name:'Holo',     symbol:'HOT', image:'', quantity:3155276.4, invested:0 },
-  { coinId:'celestia',  name:'Celestia', symbol:'TIA', image:'', quantity:502.2298,  invested:0 },
-  { coinId:'arbitrum',  name:'Arbitrum', symbol:'ARB', image:'', quantity:1000.8986, invested:0 }
-];
-const SEED_INVESTED = 300000; // ilk portföy geneli yatırılan tutar (USD), coinlere dağıtılmaz
+/* Temiz başlangıç: seed yok — token'ları contract adresi/arama ile kendin ekle */
+const SEED_FLAG = 'cryptoPortfolioContractSeedV1';
+const SEED = [];
+const SEED_INVESTED = null; // ilk portföy geneli yatırılan tutar (elle girilir)
 
-/* İkinci portföy için tek seferlik başlangıç varlıkları
-   - quantity: adet biliniyor (Binance ekranları)
-   - seedUsd: yalnızca USD değeri biliniyor; adet ilk fiyat çekilince değer/fiyat ile hesaplanır */
-const SEED2_FLAG = 'cryptoPortfolioSeed2V1';
-const SEED2 = [
-  // Binance — adet
-  { coinId:'holotoken',    name:'Holo',         symbol:'HOT',  image:'', quantity:2001880,  invested:0 },
-  { coinId:'arbitrum',     name:'Arbitrum',     symbol:'ARB',  image:'', quantity:3707.8,   invested:0 },
-  { coinId:'oasis-network',name:'Oasis Network',symbol:'ROSE', image:'', quantity:30251.2,  invested:0 },
-  { coinId:'celestia',     name:'Celestia',     symbol:'TIA',  image:'', quantity:400,      invested:0 },
-  { coinId:'tezos',        name:'Tezos',        symbol:'XTZ',  image:'', quantity:492.79,   invested:0 },
-  { coinId:'mina-protocol',name:'Mina',         symbol:'MINA', image:'', quantity:2000,     invested:0 },
-  { coinId:'eigenlayer',   name:'EigenLayer',   symbol:'EIGEN',image:'', quantity:302.82,   invested:0 },
-  { coinId:'memecoin-2',   name:'Memecoin',     symbol:'MEME', image:'', quantity:62360,    invested:0 },
-  { coinId:'pixels',       name:'Pixels',       symbol:'PIXEL',image:'', quantity:6305.3,   invested:0 },
-  { coinId:'binancecoin',  name:'BNB',          symbol:'BNB',  image:'', quantity:0.0152,   invested:0 },
-  // "Yatırımlar" ekranı — yalnızca USD değeri (adet otomatik hesaplanacak)
-  { coinId:'chainlink',    name:'Chainlink',    symbol:'LINK', image:'', seedUsd:192.72, quantity:0, invested:0 },
-  { coinId:'avalanche-2',  name:'Avalanche',    symbol:'AVAX', image:'', seedUsd:751.40, quantity:0, invested:0 },
-  { coinId:'uniswap',      name:'Uniswap',      symbol:'UNI',  image:'', seedUsd:642.84, quantity:0, invested:0 },
-  { coinId:'stellar',      name:'Stellar',      symbol:'XLM',  image:'', seedUsd:262.23, quantity:0, invested:0 },
-  { coinId:'ripple',       name:'XRP',          symbol:'XRP',  image:'', seedUsd:173.87, quantity:0, invested:0 },
-  { coinId:'solana',       name:'Solana',       symbol:'SOL',  image:'', seedUsd:304.38, quantity:0, invested:0 },
-  { coinId:'cardano',      name:'Cardano',      symbol:'ADA',  image:'', seedUsd:131.67, quantity:0, invested:0 },
-  { coinId:'aave',         name:'Aave',         symbol:'AAVE', image:'', seedUsd:97.68,  quantity:0, invested:0 },
-  { coinId:'litecoin',     name:'Litecoin',     symbol:'LTC',  image:'', seedUsd:139.81, quantity:0, invested:0 }
-];
+const SEED2_FLAG = 'cryptoPortfolioContractSeed2V1';
+const SEED2 = [];
 
 /* ---------- State ---------- */
 let state = loadState();
