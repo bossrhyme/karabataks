@@ -67,27 +67,6 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .gstat .gpct{font-size:12.5px;font-family:var(--mono);margin-top:2px}
 .gstat .gsub{display:flex;gap:16px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text3);flex-wrap:wrap}
 .gstat .gsub b{color:var(--text2);font-family:var(--mono);font-weight:500}
-.meme-img{display:block;width:100%;max-width:150px;border-radius:8px;margin-top:12px}
-
-/* Giriş animasyonu — ilk portföy üzerine patlama/slot/konfeti */
-.fx-overlay{position:fixed;overflow:hidden;pointer-events:none;z-index:45}
-.fx{position:absolute;top:0;line-height:1;will-change:top,transform,opacity}
-.fx.fall{animation:fx-fall linear infinite}
-@keyframes fx-fall{
-  0%{top:-6%;transform:translateX(0) rotate(0);opacity:0}
-  6%{opacity:1}
-  88%{opacity:1}
-  100%{top:104%;transform:translateX(var(--dx)) rotate(var(--rot));opacity:0}
-}
-.fx.boom{animation:fx-boom ease-out infinite}
-@keyframes fx-boom{
-  0%{transform:scale(.2);opacity:0}
-  3%{opacity:1}
-  9%{transform:scale(1.6);opacity:1}
-  15%{transform:scale(2.1);opacity:0}
-  100%{transform:scale(2.1);opacity:0}
-}
-
 /* PORTFOLIOS */
 .portfolios{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .pf{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
@@ -102,21 +81,6 @@ header{border-bottom:1px solid var(--border);padding:16px 22px;display:flex;alig
 .pf-inv-edit{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;width:128px;padding:3px 7px;border-radius:6px;outline:none;transition:.12s}
 .pf-inv-edit:focus{border-color:var(--accent)}
 .pf-inv-edit::placeholder{color:var(--text3);font-weight:400}
-
-/* "Batırılan" — neon altın sarısı */
-.gold{color:#ffd60a!important;text-shadow:0 0 8px rgba(255,214,10,.45)}
-.gold b{color:#ffd60a}
-.pf-inv-edit.gold{color:#ffd60a;border-color:rgba(255,214,10,.45);text-shadow:0 0 8px rgba(255,214,10,.4)}
-.pf-inv-edit.gold:focus{border-color:#ffd60a}
-
-/* MÜZİK DÜĞMESİ */
-.music-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:500;padding:10px 15px;border-radius:24px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.45);transition:.15s}
-.music-btn:hover{border-color:#4a5468;background:#222a38}
-.music-btn:active{transform:translateY(1px)}
-.music-btn.on{background:var(--green);border-color:var(--green);color:#062012;font-weight:600}
-.music-btn .ic{font-size:15px;line-height:1}
-.music-btn.pulse{animation:mpulse 1.8s ease-in-out infinite}
-@keyframes mpulse{0%,100%{box-shadow:0 6px 20px rgba(0,0,0,.45)}50%{box-shadow:0 4px 26px rgba(38,208,124,.55)}}
 
 /* TABLE */
 .tbl-wrap{overflow-x:auto}
@@ -203,19 +167,12 @@ footer a:hover{color:var(--text)}
   <br>Bu sayfa yatırım tavsiyesi değildir.
 </footer>
 
-<button class="music-btn pulse" id="musicBtn" title="Müzik aç/kapat">
-  <span class="ic">🔈</span><span class="lbl">Müzik</span>
-</button>
-
 <script>
 const CG = 'https://api.coingecko.com/api/v3';
 const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
 const STORE_KEY = 'cryptoPortfolioContractV1';
-// İlk portföy kartındaki "bet more" görseli. Repoya betmore.gif/.jpg ekleyin
-// veya buraya doğrudan bir görsel URL'si yazın.
-const MEME_URL = 'betmore.jpg';
 
 /* Temiz başlangıç: seed yok — token'ları contract adresi/arama ile kendin ekle */
 const SEED_FLAG = 'cryptoPortfolioContractSeedV1';
@@ -321,7 +278,6 @@ function clsOf(n){ return n>0?'pos':(n<0?'neg':'muted'); }
 function render(){
   renderPortfolios();
   renderGrand();
-  positionFx();
 }
 
 function hasManualInvested(p){ return p && p.invested!==undefined && p.invested!==null && p.invested!==''; }
@@ -338,21 +294,19 @@ function pfSummary(p){
   const plPct = invested>0 ? (pl/invested*100) : 0;
   return {invested, value, pl, plPct, holdInvested};
 }
-function investLabel(idx){ return idx===0 ? 'Batırılan' : 'Yatırılan'; }
-function grandCard(title, s, isTotal, label, isFirst){
+function grandCard(title, s, isTotal){
   return `<div class="gstat${isTotal?' total':''}">
       <div class="gtitle">${escapeHtml(title)}</div>
       <div class="gpl ${clsOf(s.pl)}">${fmtMoney(s.pl)}</div>
       <div class="gpct ${clsOf(s.pl)}">${fmtPct(s.plPct)} getiri</div>
       <div class="gsub">
-        <span class="gold">${label||'Yatırılan'} <b>${fmtMoney(s.invested)}</b></span>
+        <span>Yatırılan <b>${fmtMoney(s.invested)}</b></span>
         <span>Değer <b>${fmtMoney(s.value)}</b></span>
       </div>
-      ${isFirst ? `<img class="meme-img" src="${MEME_URL}" alt="bet more" onerror="this.style.display='none'">` : ''}
     </div>`;
 }
 function renderGrand(){
-  const cards = state.portfolios.map((p,i)=>grandCard(p.name, pfSummary(p), false, investLabel(i), i===0));
+  const cards = state.portfolios.map(p=>grandCard(p.name, pfSummary(p), false));
   document.getElementById('grandTotals').innerHTML = cards.join('');
 }
 
@@ -402,8 +356,8 @@ function renderPortfolio(p, idx){
       <input class="pf-name" value="${escapeAttr(p.name)}" data-pf-name="${p.id}" maxlength="40">
     </div>
     <div class="pf-totals">
-      <div class="t"><span class="lbl gold">${investLabel(idx)} (${SYM})</span>
-        <input class="pf-inv-edit gold" type="number" step="any" value="${hasManualInvested(p)?p.invested:''}" placeholder="${s.holdInvested||0}" data-pf-inv="${p.id}" title="Portföy geneli ${investLabel(idx).toLowerCase()} tutar"></div>
+      <div class="t"><span class="lbl">Yatırılan (${SYM})</span>
+        <input class="pf-inv-edit" type="number" step="any" value="${hasManualInvested(p)?p.invested:''}" placeholder="${s.holdInvested||0}" data-pf-inv="${p.id}" title="Portföy geneli yatırılan tutar"></div>
       <div class="t"><span class="lbl">Bugünkü Değer</span><span class="v">${fmtMoney(s.value)}</span></div>
       <div class="t"><span class="lbl">Kâr/Zarar</span><span class="v ${clsOf(s.pl)}">${fmtMoney(s.pl)}</span></div>
       <div class="t"><span class="lbl">Getiri</span><span class="v ${clsOf(s.pl)}">${fmtPct(s.plPct)}</span></div>
@@ -722,91 +676,12 @@ document.addEventListener('click', e=>{
 
 document.getElementById('refreshBtn').addEventListener('click', fetchPrices);
 
-/* ---------- Giriş animasyonu (sürekli döngü) ---------- */
-let fxOverlay = null;
-function positionFx(){
-  if(!fxOverlay) return;
-  const g = document.querySelector('#grandTotals .gstat'); // "Ko Invest Böcek Portföy" kartı
-  const p = document.querySelector('.pf');                 // 1. portföy kartı
-  if(!g || !p) return;
-  const a = g.getBoundingClientRect(), b = p.getBoundingClientRect();
-  const left = Math.min(a.left, b.left);
-  const top = a.top;
-  const right = Math.max(a.right, b.right);
-  const bottom = b.bottom;
-  if(right-left < 10 || bottom-top < 10) return;
-  fxOverlay.style.left = left+'px';
-  fxOverlay.style.top = top+'px';
-  fxOverlay.style.width = (right-left)+'px';
-  fxOverlay.style.height = (bottom-top)+'px';
-}
-function buildFx(){
-  if(fxOverlay) return;
-  fxOverlay = document.createElement('div');
-  fxOverlay.className = 'fx-overlay';
-  document.body.appendChild(fxOverlay);
-  const fall = ['🎉','🎊','💸','🪙','🎲','🎰','🔫','💵'];
-  const boom = ['💥','💥','🔫','🎰'];
-  const N = 64;
-  for(let i=0;i<N;i++){
-    const e = document.createElement('div');
-    const isBoom = Math.random() < 0.22;
-    if(isBoom){
-      e.className = 'fx boom';
-      e.textContent = boom[Math.floor(Math.random()*boom.length)];
-      e.style.left = (Math.random()*86+4)+'%';
-      e.style.top  = (Math.random()*84+6)+'%';
-      e.style.fontSize = (Math.random()*22+22)+'px';
-      const d = 8; // ~8 sn döngü
-      e.style.animationDuration = d+'s';
-      e.style.animationDelay = (-Math.random()*d)+'s';
-    } else {
-      e.className = 'fx fall';
-      e.textContent = fall[Math.floor(Math.random()*fall.length)];
-      e.style.left = (Math.random()*100)+'%';
-      e.style.setProperty('--dx', (Math.random()*120-60)+'px');
-      e.style.setProperty('--rot', (Math.random()*720-360)+'deg');
-      e.style.fontSize = (Math.random()*16+16)+'px';
-      const d = 7.4 + Math.random()*1.4; // ~8 sn'de bir tekrar
-      e.style.animationDuration = d+'s';
-      e.style.animationDelay = (-Math.random()*d)+'s'; // döngüyü baştan dolu başlat
-    }
-    fxOverlay.appendChild(e);
-  }
-  positionFx();
-}
-window.addEventListener('resize', positionFx);
-
 /* ---------- Init ---------- */
 applySeed();
 migrateCoinIds();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
-setTimeout(buildFx, 350);
-
-/* ---------- Müzik (YouTube) ---------- */
-const YT_ID = 'mOYZaiDZ7BM';
-let musicFrame = null;
-const musicBtn = document.getElementById('musicBtn');
-musicBtn.addEventListener('click', ()=>{
-  if(musicFrame){
-    musicFrame.remove(); musicFrame = null;
-    musicBtn.classList.remove('on');
-    musicBtn.querySelector('.ic').textContent = '🔈';
-    musicBtn.querySelector('.lbl').textContent = 'Müzik';
-  } else {
-    musicFrame = document.createElement('iframe');
-    musicFrame.allow = 'autoplay';
-    musicFrame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0;pointer-events:none';
-    musicFrame.src = `https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}`;
-    document.body.appendChild(musicFrame);
-    musicBtn.classList.remove('pulse');
-    musicBtn.classList.add('on');
-    musicBtn.querySelector('.ic').textContent = '🔊';
-    musicBtn.querySelector('.lbl').textContent = 'Çalıyor';
-  }
-});
 </script>
 </body>
 </html>
