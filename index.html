@@ -527,10 +527,22 @@ function clearCoin(pfId){
 }
 
 /* ---------- Mutations ---------- */
-function addHolding(pfId){
-  const coin = selectedCoin[pfId];
+async function addHolding(pfId){
+  let coin = selectedCoin[pfId];
   const qty = parseFloat(document.querySelector(`[data-qty="${pfId}"]`).value);
-  if(!coin){ flash(pfId,'Önce bir coin seçin'); return; }
+  // Listeden seçilmediyse: arama kutusunda contract adresi varsa doğrudan ekle
+  if(!coin){
+    const inp = document.querySelector(`[data-search="${pfId}"]`);
+    const dex = inp && parseDexInput(inp.value);
+    if(dex){
+      flash(pfId,'Ekleniyor…');
+      coin = (await dexLookup(dex.addr, dex.chain)) || {
+        dex:dex.addr, chain:dex.chain, id:'dex:'+dex.addr,
+        name:'Dexscreener token', symbol:'DEX', image:''
+      };
+    }
+  }
+  if(!coin){ flash(pfId,'Önce coini seçin ya da contract adresi yapıştırın'); return; }
   const p = state.portfolios.find(x=>x.id===pfId);
   const isDex = !!coin.dex;
   // merge if exists
