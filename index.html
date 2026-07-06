@@ -182,6 +182,17 @@ const SEED_INVESTED = null; // ilk portföy geneli yatırılan tutar (elle giril
 const SEED2_FLAG = 'cryptoPortfolioContractSeed2V1';
 const SEED2 = [];
 
+/* Cüzdan ekranından adet güncellemesi — sembole göre, tek seferlik.
+   (Semboller Dexscreener/CoinGecko'dan dolduğu için fiyat çekiminden sonra uygulanır.) */
+const QTY_FIX_FLAG = 'cryptoPortfolioContractQtyV1';
+const QTY_FIXES = {
+  'ANSEM': 2003.10308,
+  'JOTCHUA': 50000.04272,
+  'SOL': 2.49338,
+  'BABYANSEM': 47859.46488,
+  'RELIC': 1240000
+};
+
 /* ---------- State ---------- */
 let state = loadState();
 let prices = {};        // coinId -> {price, change24h}
@@ -231,6 +242,18 @@ function migrateCoinIds(){
   state.portfolios.forEach(p=>p.holdings.forEach(h=>{
     if(h.coinId && COINID_FIXES[h.coinId]){ h.coinId = COINID_FIXES[h.coinId]; changed=true; }
   }));
+  if(changed) save();
+}
+// Cüzdan ekranındaki adetleri sembole göre bir kez uygula (semboller yüklendikten sonra)
+function migrateQuantities(){
+  if(localStorage.getItem(QTY_FIX_FLAG)) return;
+  let changed=false;
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{
+    const q = QTY_FIXES[(h.symbol||'').toUpperCase()];
+    if(q!=null && h.quantity!==q){ h.quantity = q; changed=true; }
+  }));
+  // Semboller ilk fiyat çekiminde yüklenir; bir kez uygula, sonra elle düzenlemeyi ezme
+  localStorage.setItem(QTY_FIX_FLAG,'1');
   if(changed) save();
 }
 // seedUsd'li varlıkların adetini ilk fiyatla hesapla (değer / fiyat)
@@ -628,6 +651,7 @@ async function fetchPrices(){
     }
     await fetchDex();
     resolveSeedUsd();
+    migrateQuantities();
     const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     setStatus('ok','Güncellendi · '+t);
     render();
