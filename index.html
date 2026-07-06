@@ -268,6 +268,15 @@ function fmtNum(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
   return n.toLocaleString('en-US',{maximumFractionDigits:8});
 }
+// Birim fiyat: çok küçük fiyatlarda anlamlı haneleri koru (pump/memecoin)
+function fmtPrice(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  const a = Math.abs(n);
+  if(a===0) return SYM+'0';
+  if(a>=1) return SYM + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dec = Math.min(14, Math.max(2, Math.ceil(-Math.log10(a)) + 3));
+  return SYM + n.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
 function fmtPct(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
   return (n>=0?'+':'') + n.toFixed(2) + '%';
@@ -339,7 +348,7 @@ function renderPortfolio(p, idx){
         </div>
       </td>
       <td><input class="cell-edit" type="number" step="any" min="0" value="${qty}" data-pf="${p.id}" data-h="${h.id}" data-f="quantity"></td>
-      <td>${pr?fmtMoney(pr.price):'<span class="muted">…</span>'}<div class="chg ${pr?clsOf(pr.change24h):''}">${pr?fmtPct(pr.change24h):''}</div></td>
+      <td>${pr?fmtPrice(pr.price):'<span class="muted">…</span>'}<div class="chg ${pr?clsOf(pr.change24h):''}">${pr?fmtPct(pr.change24h):''}</div></td>
       <td>${curVal!==null?fmtMoney(curVal):'<span class="muted">…</span>'}</td>
       <td><div class="row-actions">
         <button class="icon-btn" title="Sil" data-del-pf="${p.id}" data-del-h="${h.id}">✕</button>
