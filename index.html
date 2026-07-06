@@ -586,14 +586,31 @@ function setStatus(s, txt){
   document.getElementById('statusText').textContent = txt;
 }
 // Dexscreener — token (contract) endpoint'i öncelikli, en likit havuzu seç
+function tokenInPair(p, a){
+  return (p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a) ||
+         (p.quoteToken && p.quoteToken.address && p.quoteToken.address.toLowerCase()===a);
+}
 function pickBestPair(pairs, addr, chain){
   if(!pairs || !pairs.length) return null;
   const a = (addr||'').toLowerCase();
-  let cands = pairs.filter(p=> p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a);
+  let cands = pairs.filter(p=>tokenInPair(p,a));
   if(!cands.length) cands = pairs.slice();
   if(chain){ const c = cands.filter(p=>p.chainId===chain); if(c.length) cands = c; }
   cands.sort((x,y)=> ((y.liquidity&&y.liquidity.usd)||0) - ((x.liquidity&&x.liquidity.usd)||0));
   return cands[0];
+}
+// Token'ın DOĞRU USD fiyatı: base ise priceUsd, quote ise priceUsd/priceNative
+function pairUsdPrice(p, addr){
+  if(!p) return null;
+  const a = (addr||'').toLowerCase();
+  const pu = parseFloat(p.priceUsd);
+  if(p.quoteToken && p.quoteToken.address && p.quoteToken.address.toLowerCase()===a
+     && !(p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a)){
+    const pn = parseFloat(p.priceNative);
+    if(isFinite(pu) && isFinite(pn) && pn>0) return pu/pn;
+    return null;
+  }
+  return isFinite(pu) ? pu : null;
 }
 function tokenSideFor(p, addr){
   const a = (addr||'').toLowerCase();
@@ -618,7 +635,8 @@ async function resolveDexPair(addr, chain){
 async function dexLookup(addr, chain){
   const p = await resolveDexPair(addr, chain);
   if(!p) return null;
-  if(p.priceUsd!=null) prices['dex:'+addr] = { price:parseFloat(p.priceUsd), change24h:(p.priceChange&&p.priceChange.h24)||0 };
+  const px = pairUsdPrice(p, addr);
+  if(px!=null) prices['dex:'+addr] = { price:px, change24h:(p.priceChange&&p.priceChange.h24)||0 };
   const tok = tokenSideFor(p, addr);
   return {
     dex:addr, chain:(p.chainId||chain||'solana'), id:'dex:'+addr,
@@ -633,8 +651,10 @@ async function fetchDex(){
   await Promise.all(list.map(async d=>{
     try{
       const p = await resolveDexPair(d.addr, d.chain);
-      if(!p || p.priceUsd==null) return;
-      prices['dex:'+d.addr] = { price:parseFloat(p.priceUsd), change24h:(p.priceChange && p.priceChange.h24) || 0 };
+      if(!p) return;
+      const px = pairUsdPrice(p, d.addr);
+      if(px==null) return;
+      prices['dex:'+d.addr] = { price:px, change24h:(p.priceChange && p.priceChange.h24) || 0 };
       const tok = tokenSideFor(p, d.addr);
       let changed=false;
       const sym = tok && tok.symbol, nm = tok && tok.name, img = p.info && p.info.imageUrl;
