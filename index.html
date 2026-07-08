@@ -547,13 +547,26 @@ function tokenInPair(p, a){
   return (p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a) ||
          (p.quoteToken && p.quoteToken.address && p.quoteToken.address.toLowerCase()===a);
 }
+// Güvenilir karşı-para birimleri (USD fiyatı doğru olan havuzlar).
+// Çöp token/token havuzları (ör. Jotchua/BUCKINGHAM) yanlış USD fiyatı verir.
+const RELIABLE_QUOTES = new Set(['SOL','WSOL','USDC','USDT','USDBC','DAI','WETH','ETH','WBNB','BNB','USD1','USDE','BUSD','FDUSD','USDG']);
+function counterToken(p, a){
+  if(p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a) return p.quoteToken;
+  return p.baseToken;
+}
+function isReliablePair(p, a){
+  const c = counterToken(p, a);
+  return c && c.symbol && RELIABLE_QUOTES.has(c.symbol.toUpperCase());
+}
 function pickBestPair(pairs, addr, chain){
   if(!pairs || !pairs.length) return null;
   const a = (addr||'').toLowerCase();
-  const isBase = p => p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a;
-  // Önce token'ın BASE olduğu havuzlar (priceUsd doğrudan token'ın fiyatı, en tutarlı)
-  let cands = pairs.filter(isBase);
-  if(!cands.length) cands = pairs.filter(p=>tokenInPair(p,a)); // yoksa quote olduğu havuzlar
+  const withPrice = p => p.priceUsd!=null && isFinite(parseFloat(p.priceUsd));
+  // 1) token'ı içeren + güvenilir karşı-para (SOL/USDC/USDT…) + fiyatı olan havuzlar
+  let cands = pairs.filter(p=>tokenInPair(p,a) && isReliablePair(p,a) && withPrice(p));
+  // 2) yoksa token'ı içeren fiyatı olan tüm havuzlar
+  if(!cands.length) cands = pairs.filter(p=>tokenInPair(p,a) && withPrice(p));
+  if(!cands.length) cands = pairs.filter(p=>tokenInPair(p,a));
   if(!cands.length) cands = pairs.slice();
   if(chain){ const c = cands.filter(p=>p.chainId===chain); if(c.length) cands = c; }
   cands.sort((x,y)=> ((y.liquidity&&y.liquidity.usd)||0) - ((x.liquidity&&x.liquidity.usd)||0));
