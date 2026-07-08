@@ -602,7 +602,10 @@ function tokenInPair(p, a){
 function pickBestPair(pairs, addr, chain){
   if(!pairs || !pairs.length) return null;
   const a = (addr||'').toLowerCase();
-  let cands = pairs.filter(p=>tokenInPair(p,a));
+  const isBase = p => p.baseToken && p.baseToken.address && p.baseToken.address.toLowerCase()===a;
+  // Önce token'ın BASE olduğu havuzlar (priceUsd doğrudan token'ın fiyatı, en tutarlı)
+  let cands = pairs.filter(isBase);
+  if(!cands.length) cands = pairs.filter(p=>tokenInPair(p,a)); // yoksa quote olduğu havuzlar
   if(!cands.length) cands = pairs.slice();
   if(chain){ const c = cands.filter(p=>p.chainId===chain); if(c.length) cands = c; }
   cands.sort((x,y)=> ((y.liquidity&&y.liquidity.usd)||0) - ((x.liquidity&&x.liquidity.usd)||0));
