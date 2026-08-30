@@ -305,6 +305,26 @@ function migrateCoinIds(){
   }));
   if(changed) save();
 }
+// 2. portföy ("Yatırımlar" cüzdanı) adetleri — sembole göre, YALNIZCA 2. portföy, tek seferlik.
+// (HOT/TIA 1. portföyde de var; bu yüzden sadece portfolios[1] güncellenir.)
+const PF2_QTY_FLAG = 'cryptoPortfolioPf2QtyV1';
+const PF2_QTY = {
+  'LINK':26.21231, 'AVAX':150.45024, 'UNI':220.22661, 'XLM':1503.75,
+  'XRP':164.38, 'SOL':4.25287419, 'ADA':895.52238, 'AAVE':1.02704,
+  'LTC':3.28118, 'HOT':2996962, 'TIA':3013.17485055
+};
+function migratePf2Quantities(){
+  if(localStorage.getItem(PF2_QTY_FLAG)) return;
+  const p = state.portfolios[1];
+  if(!p) return;
+  let changed=false;
+  p.holdings.forEach(h=>{
+    const q = PF2_QTY[(h.symbol||'').toUpperCase()];
+    if(q!=null && h.quantity!==q){ h.quantity = q; changed=true; }
+  });
+  localStorage.setItem(PF2_QTY_FLAG,'1');
+  if(changed) save();
+}
 // seedUsd'li varlıkların adetini ilk fiyatla hesapla (değer / fiyat)
 function resolveSeedUsd(){
   let changed=false;
@@ -866,6 +886,7 @@ window.addEventListener('resize', positionFx);
 /* ---------- Init ---------- */
 applySeed();
 migrateCoinIds();
+migratePf2Quantities();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
