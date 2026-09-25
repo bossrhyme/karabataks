@@ -172,26 +172,21 @@ const CG = 'https://api.coingecko.com/api/v3';
 const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
-const STORE_KEY = 'cryptoPortfolioContractV1';
+const STORE_KEY = 'cryptoPortfolioTrackerUniTiaV1';
 
-/* Temiz başlangıç: seed yok — token'ları contract adresi/arama ile kendin ekle */
-const SEED_FLAG = 'cryptoPortfolioContractSeedV1';
-const SEED = [];
-const SEED_INVESTED = null; // ilk portföy geneli yatırılan tutar (elle girilir)
+/* Başlangıç varlıkları (cüzdan ekranından, adetler) */
+const SEED_FLAG = 'cryptoPortfolioTrackerUniTiaSeedV1';
+const SEED = [
+  { coinId:'uniswap',  name:'Uniswap',  symbol:'UNI', image:'', quantity:74.20,      invested:0 },
+  { coinId:'celestia', name:'Celestia', symbol:'TIA', image:'', quantity:1101.83706, invested:0 }
+];
+const SEED_INVESTED = null; // portföy geneli yatırılan tutar (elle girilir)
 
-const SEED2_FLAG = 'cryptoPortfolioContractSeed2V1';
+const SEED2_FLAG = 'cryptoPortfolioTrackerUniTiaSeed2V1';
 const SEED2 = [];
 
-/* Cüzdan ekranından adet güncellemesi — sembole göre, tek seferlik.
-   (Semboller Dexscreener/CoinGecko'dan dolduğu için fiyat çekiminden sonra uygulanır.) */
-const QTY_FIX_FLAG = 'cryptoPortfolioContractQtyV1';
-const QTY_FIXES = {
-  'ANSEM': 2003.10308,
-  'JOTCHUA': 50000.04272,
-  'SOL': 2.49338,
-  'BABYANSEM': 47859.46488,
-  'RELIC': 1240000
-};
+const QTY_FIX_FLAG = 'cryptoPortfolioTrackerUniTiaQtyV1';
+const QTY_FIXES = {};
 
 /* ---------- State ---------- */
 let state = loadState();
@@ -201,8 +196,7 @@ let refreshTimer = null;
 function defaultState(){
   return {
     portfolios: [
-      { id: pid(), name: 'Portföy 1', holdings: [] },
-      { id: pid(), name: 'Portföy 2', holdings: [] }
+      { id: pid(), name: 'Portföy', holdings: [] }
     ]
   };
 }
@@ -212,8 +206,6 @@ function loadState(){
     if(!raw) return defaultState();
     const s = JSON.parse(raw);
     if(!s.portfolios || !s.portfolios.length) return defaultState();
-    // ensure exactly 2 portfolios
-    while(s.portfolios.length < 2) s.portfolios.push({id:pid(),name:'Portföy '+(s.portfolios.length+1),holdings:[]});
     return s;
   }catch(e){ return defaultState(); }
 }
