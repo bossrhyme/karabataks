@@ -325,6 +325,42 @@ function migratePf2Quantities(){
   localStorage.setItem(PF2_QTY_FLAG,'1');
   if(changed) save();
 }
+// 2. portföy "Yatırımlar" cüzdanı — adet güncelle + eksik coinleri ekle (YALNIZCA portfolios[1])
+const PF2_SYNC_FLAG = 'cryptoPortfolioPf2SyncV1';
+const PF2_ITEMS = [
+  {coinId:'chainlink', symbol:'LINK', name:'Chainlink', qty:26.21231},
+  {coinId:'avalanche-2', symbol:'AVAX', name:'Avalanche', qty:150.45024},
+  {coinId:'uniswap', symbol:'UNI', name:'Uniswap', qty:220.00294},
+  {coinId:'stellar', symbol:'XLM', name:'Stellar', qty:1503.75},
+  {coinId:'ripple', symbol:'XRP', name:'XRP', qty:164.38},
+  {coinId:'solana', symbol:'SOL', name:'Solana', qty:4.26145838},
+  {coinId:'cardano', symbol:'ADA', name:'Cardano', qty:895.52238},
+  {coinId:'aave', symbol:'AAVE', name:'Aave', qty:1.02704},
+  {coinId:'litecoin', symbol:'LTC', name:'Litecoin', qty:3.28118},
+  {coinId:'holotoken', symbol:'HOT', name:'Holo', qty:2996962},
+  {coinId:'celestia', symbol:'TIA', name:'Celestia', qty:3017.13990717},
+  {coinId:'pancakeswap-token', symbol:'CAKE', name:'PancakeSwap', qty:500},
+  {coinId:'jupiter-exchange-solana', symbol:'JUP', name:'Jupiter', qty:4000},
+  {coinId:'quant-network', symbol:'QNT', name:'Quant', qty:4.549}
+];
+function syncPf2(){
+  if(localStorage.getItem(PF2_SYNC_FLAG)) return;
+  const p = state.portfolios[1];
+  if(!p) return;
+  let changed=false;
+  PF2_ITEMS.forEach(it=>{
+    const h = p.holdings.find(x=> (!x.dex && x.coinId===it.coinId) || (x.symbol||'').toUpperCase()===it.symbol);
+    if(h){
+      if(!h.coinId){ h.coinId = it.coinId; changed=true; }
+      if(h.quantity!==it.qty){ h.quantity = it.qty; changed=true; }
+    } else {
+      p.holdings.push({ id:pid(), coinId:it.coinId, name:it.name, symbol:it.symbol, image:'', quantity:it.qty, invested:0 });
+      changed=true;
+    }
+  });
+  localStorage.setItem(PF2_SYNC_FLAG,'1');
+  if(changed) save();
+}
 // seedUsd'li varlıkların adetini ilk fiyatla hesapla (değer / fiyat)
 function resolveSeedUsd(){
   let changed=false;
@@ -887,6 +923,7 @@ window.addEventListener('resize', positionFx);
 applySeed();
 migrateCoinIds();
 migratePf2Quantities();
+syncPf2();
 render();
 fetchPrices();
 refreshTimer = setInterval(fetchPrices, REFRESH_MS);
