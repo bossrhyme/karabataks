@@ -647,6 +647,40 @@ async function fetchDex(){
     }catch(e){}
   }));
 }
+async function fetchBinance(){
+  const B='https://api.binance.com/api/v3';
+  const symMap={};
+  state.portfolios.forEach(p=>p.holdings.forEach(h=>{
+    if(h.dex || !h.coinId) return;
+    const sy=(h.symbol||'').toUpperCase(); if(!sy) return;
+    const bs=sy+'USDT';
+    (symMap[bs]=symMap[bs]||[]).push(h.coinId);
+  }));
+  const syms=Object.keys(symMap);
+  if(!syms.length) return false;
+  let list;
+  try{
+    const res=await fetch(`${B}/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(syms))}`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    list=await res.json();
+  }catch(e){
+    // bir sembol Binance'te yoksa toplu istek hata verir -> tum fiyatlari cekip filtrele
+    const res=await fetch(`${B}/ticker/price`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const all=await res.json();
+    list=all.filter(t=>symMap[t.symbol]);
+  }
+  let any=false;
+  list.forEach(t=>{
+    const ids=symMap[t.symbol]; if(!ids) return;
+    const price=parseFloat(t.lastPrice!=null?t.lastPrice:t.price);
+    const chg=t.priceChangePercent!=null?parseFloat(t.priceChangePercent):null;
+    if(!isFinite(price)) return;
+    ids.forEach(id=>{ prices[id]={price, change24h:chg}; });
+    any=true;
+  });
+  return any;
+}
 async function fetchPrices(){
   const ids = cgIds();
   const dl = dexList();
@@ -682,6 +716,11 @@ async function fetchPrices(){
         ids.forEach(id=>{ if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] }; });
         if(Object.keys(data).length>0){ ok = true; lastPriceErr=''; }
       }catch(e){ lastPriceErr = (e && e.message) || lastPriceErr; }
+    }
+    // 3) yedek: Binance (keyless, CORS)
+    if(!ok){
+      try{ if(await fetchBinance()){ ok = true; lastPriceErr=''; } }
+      catch(e){ lastPriceErr = 'Binance: ' + ((e && e.message)||'hata'); }
     }
   }
   try{ await fetchDex(); }catch(_){}
