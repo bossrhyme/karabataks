@@ -169,6 +169,11 @@ footer a:hover{color:var(--text)}
 
 <script>
 const CG = 'https://api.coingecko.com/api/v3';
+// İsteğe bağlı ücretsiz CoinGecko "Demo" API anahtarı (coingecko.com/en/developers/dashboard).
+// Keyless istekler engellenirse (429/401/CORS) buraya anahtarı yaz.
+const CG_KEY = '';
+function cgUrl(path){ return CG + path + (CG_KEY ? (path.includes('?')?'&':'?') + 'x_cg_demo_api_key=' + CG_KEY : ''); }
+let lastPriceErr = '';
 const VS = 'usd';
 const SYM = '$';
 const REFRESH_MS = 60000;
@@ -647,11 +652,13 @@ async function fetchPrices(){
   const dl = dexList();
   if(!ids.length && !dl.length){ setStatus('ok','Coin ekleyin'); return; }
   setStatus('loading','Güncelleniyor…');
-  try{
-    if(ids.length){
-      // coins/markets: fiyat + 24s değişim + logo tek çağrıda
-      const res = await fetch(`${CG}/coins/markets?vs_currency=${VS}&ids=${ids.join(',')}&per_page=250&price_change_percentage=24h`);
-      if(!res.ok) throw new Error('http '+res.status);
+  lastPriceErr = '';
+  if(ids.length){
+    let ok = false;
+    // 1) coins/markets (fiyat + 24s + logo)
+    try{
+      const res = await fetch(cgUrl(`/coins/markets?vs_currency=${VS}&ids=${ids.join(',')}&per_page=250&price_change_percentage=24h`));
+      if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       let changed=false;
       data.forEach(c=>{
@@ -664,17 +671,26 @@ async function fetchPrices(){
         }));
       });
       if(changed) save();
+      ok = Array.isArray(data) && data.length>0;
+      if(!ok) lastPriceErr = 'boş yanıt';
+    }catch(e){ lastPriceErr = (e && e.message) || 'markets hatası'; }
+    if(!ok){
+      try{
+        const res = await fetch(cgUrl(`/simple/price?ids=${ids.join(',')}&vs_currencies=${VS}&include_24hr_change=true`));
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        ids.forEach(id=>{ if(data[id]) prices[id] = { price:data[id][VS], change24h:data[id][VS+'_24h_change'] }; });
+        if(Object.keys(data).length>0){ ok = true; lastPriceErr=''; }
+      }catch(e){ lastPriceErr = (e && e.message) || lastPriceErr; }
     }
-    await fetchDex();
-    resolveSeedUsd();
-    migrateQuantities();
-    const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    setStatus('ok','Güncellendi · '+t);
-    render();
-  }catch(e){
-    try{ await fetchDex(); resolveSeedUsd(); render(); }catch(_){}
-    setStatus('err','Bağlantı hatası — tekrar denenecek');
   }
+  try{ await fetchDex(); }catch(_){}
+  resolveSeedUsd();
+  migrateQuantities();
+  const t = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(lastPriceErr){ setStatus('err','CoinGecko: '+lastPriceErr+' · '+t); }
+  else{ setStatus('ok','Güncellendi · '+t); }
+  render();
 }
 
 /* ---------- Events (delegation) ---------- */
