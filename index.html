@@ -173,10 +173,15 @@ footer{text-align:center;padding:24px;color:var(--text3);font-size:12px}
 const STORE_KEY = 'hedefBakiyeV1';
 let state = load();
 
-function def(){ return { goal:null, currency:'₺', entries:[] }; }
+function def(){ return { goal:null, currency:'$', entries:[] }; }
 function load(){
-  try{ const s = JSON.parse(localStorage.getItem(STORE_KEY)); if(s && s.entries) { s.currency = s.currency||'₺'; return s; } }catch(e){}
-  return def();
+  let s = null;
+  try{ const raw = JSON.parse(localStorage.getItem(STORE_KEY)); if(raw && raw.entries) s = raw; }catch(e){}
+  if(!s) s = def();
+  s.currency = s.currency || '$';
+  // Tek seferlik: para birimini dolara çevir
+  try{ if(!localStorage.getItem('hedefCurUSD')){ s.currency = '$'; localStorage.setItem(STORE_KEY, JSON.stringify(s)); localStorage.setItem('hedefCurUSD','1'); } }catch(e){}
+  return s;
 }
 function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
 function uid(){ return 'e'+Math.random().toString(36).slice(2,9); }
